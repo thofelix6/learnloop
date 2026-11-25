@@ -1,0 +1,396 @@
+<section class="chapter">
+<h1>Chapter 7 — Strings and Common Functions</h1>
+<p class="lede">Text is the most common thing a program touches: names, file contents, log lines, form input, CSV rows. This chapter gives you the string skills you will reach for every day — pulling pieces out of text, cleaning it, splitting it apart and joining it back together, lining numbers up with f-strings, and building large strings without making the program slow.</p>
+
+<h2>Indexing and slicing</h2>
+<p>A string is a sequence of characters, so it supports the same indexing and slicing syntax as a list. Index <code>0</code> is the first character and negative indices count back from the end. A slice takes <code>[start:stop:step]</code>, includes <code>start</code>, and excludes <code>stop</code> — the same half-open rule as <code>range()</code>.</p>
+<pre><code>word = "Python"
+print(word[0])       # P
+print(word[-1])      # n
+print(word[1:4])     # yth
+print(word[:3])      # Pyt
+print(word[3:])      # hon
+print(word[::2])     # Pto
+print(word[::-1])    # nohtyP   (a reversed copy)
+</code></pre>
+<p>Read <code>word[1:4]</code> as "characters from index 1 up to but not including index 4". Leaving out <code>start</code> means "from the beginning"; leaving out <code>stop</code> means "to the end". A negative step walks backwards, which is the idiomatic way to reverse text.</p>
+<p>Indexing and slicing differ in how they react to being out of range. <code>word[100]</code> raises <code>IndexError</code>, while <code>word[2:100]</code> simply returns <code>"thon"</code>: slice bounds are clamped, so a slice can never fail this way. That makes slices safe when the string length is unknown in advance.</p>
+
+<h2>Strings are immutable</h2>
+<p>You cannot change a character in place. Rebinding the name to a new string works because that creates a new object, but the old one is never modified. The same holds for every "modifying" method: <code>strip()</code>, <code>replace()</code> and friends return a new string and leave the original untouched.</p>
+<pre><code>name = "ada"
+# name[0] = "A"        # TypeError: 'str' object does not support item assignment
+name = "A" + name[1:]
+print(name)            # Ada
+
+greeting = "hello"
+shouted = greeting.upper()
+print(greeting, shouted)   # hello HELLO
+</code></pre>
+<p>This has one practical consequence worth learning early: the result must be used. A line that reads <code>line.strip()</code> on its own does the work and then throws it away. You need <code>line = line.strip()</code>. Almost everyone hits this bug once, and the traceback will not help, because nothing has failed — the program simply behaves as if the call were never made.</p>
+
+<h2>The methods you will actually use</h2>
+<p>Python has a lot of string methods. A small set covers almost all real work. <code>strip()</code> removes whitespace, or a given set of characters, from both ends, with <code>lstrip()</code> and <code>rstrip()</code> for one side. <code>split()</code> cuts a string into a list and <code>join()</code> glues a list back into a string. <code>replace()</code> swaps substrings. <code>find()</code> and <code>index()</code> locate a substring. <code>count()</code> counts occurrences. The case methods <code>upper()</code>, <code>lower()</code>, <code>title()</code> and <code>casefold()</code> change casing. <code>startswith()</code> and <code>endswith()</code> test beginnings and endings, and the <code>is...</code> family such as <code>isdigit()</code> and <code>isalpha()</code> classifies content.</p>
+<pre><code>raw = "  Grace Hopper  "
+print(raw.strip())                  # 'Grace Hopper'
+print(raw.strip().lower())          # 'grace hopper'
+
+print("a,b,,c".split(","))          # ['a', 'b', '', 'c']
+print("one  two   three".split())   # ['one', 'two', 'three']
+print(" | ".join(["x", "y", "z"]))  # x | y | z
+
+print("banana".replace("na", "NA", 1))  # baNAna
+print("banana".count("an"))             # 2
+print("report.txt".startswith("rep"))   # True
+print("report.txt".endswith(".txt"))    # True
+</code></pre>
+<p><code>find()</code> and <code>index()</code> both report a position, but they disagree about failure. <code>find()</code> returns <code>-1</code> when the substring is missing; <code>index()</code> raises <code>ValueError</code>. Use <code>find()</code> when absence is normal, and <code>index()</code> when absence is a bug you want to hear about.</p>
+<pre><code>print("banana".find("na"))    # 2
+print("banana".find("zz"))    # -1
+print("x" in "banana")        # False
+
+try:
+    position = "banana".index("zz")
+except ValueError:
+    position = -1
+print(position)               # -1
+</code></pre>
+<div class="callout warn"><b>Watch out.</b> <code>if text.find("@")</code> is a bug: a match at index <code>0</code> returns <code>0</code>, which is falsy, so the check fails exactly when the substring sits at the very start. Compare with <code>!= -1</code>, or use <code>"@" in text</code>. Be careful with <code>isdigit()</code> too — it accepts only decimal digits, so <code>"-7".isdigit()</code> and <code>"4.2".isdigit()</code> are both <code>False</code>. Parse with <code>int()</code> or <code>float()</code> when you actually need a number.</div>
+<div class="callout tip"><b>Tip.</b> <code>split()</code> with no argument splits on runs of any whitespace and drops the empty pieces, which is exactly what you want for messy user input. <code>split(" ")</code> does not: it splits on single spaces and keeps the empties. Reach for the bare call first.</div>
+
+<h2>f-strings that line up</h2>
+<p>An f-string is a string literal prefixed with <code>f</code> in which braces hold expressions. Anything inside the braces is evaluated and inserted. A colon after the expression starts the format specification, which controls width, alignment and precision — the part that turns output into a readable report instead of a pile of digits.</p>
+<pre><code>name, score = "Ada", 0.9317
+print(f"{name:&gt;10}|")   #        Ada|
+print(f"{name:&lt;10}|")   # Ada       |
+print(f"{name:^10}|")   #    Ada    |
+print(f"{score:.2f}")   # 0.93
+print(f"{score:.1%}")   # 93.2%
+print(f"{42:05d}")      # 00042
+print(f"{1234567:,}")   # 1,234,567
+</code></pre>
+<p>Read <code>10</code> as "ten columns total", <code>&gt;</code> as right-aligned, <code>&lt;</code> as left, <code>^</code> as centered, and the leading zero in <code>05d</code> as "pad with zeros". The <code>.2f</code> means two decimal places, <code>.1%</code> means one percentage decimal, and <code>,</code> inserts thousands separators. Combinations are allowed: <code>f"{price:&gt;8.2f}"</code> right-aligns a price in eight columns with two decimals, which makes a column of numbers easy to scan.</p>
+<p>Two smaller habits pay off. Use <code>!r</code> to show the <code>repr()</code> of a value while debugging, so trailing spaces and newlines become visible: <code>print(f"{line!r}")</code>. And keep the expression inside the braces rather than gluing strings with <code>+</code>, because f-strings convert numbers for you and keep the sentence in one readable piece.</p>
+
+<h2>Iterating characters and building strings</h2>
+<p>Strings are iterable, so <code>for</code> hands you one character at a time. Wrap in <code>enumerate()</code> when you also need the position, and use a generator expression with <code>sum()</code>, <code>any()</code> or <code>all()</code> for quick questions about content.</p>
+<pre><code>for index, ch in enumerate("abc", start=1):
+    print(index, ch)
+
+vowels = sum(1 for ch in "education" if ch in "aeiou")
+print(vowels)          # 5
+print("abc".isalpha()) # True
+</code></pre>
+<p>To build a string from many pieces, collect the pieces in a list and call <code>join()</code> once. The alternative, <code>total += piece</code> inside a loop, copies the whole accumulated string on every pass; that is fine for a handful of pieces and genuinely slow for thousands. Both versions below produce the same text.</p>
+<pre><code>parts = []
+for word in ["alpha", "beta", "gamma"]:
+    parts.append(word.upper())
+print(", ".join(parts))   # ALPHA, BETA, GAMMA
+
+total = ""
+for word in ["alpha", "beta", "gamma"]:
+    total += word
+print(total)              # alphabetagamma
+</code></pre>
+<p>Remember that <code>join()</code> accepts only strings: convert numbers with <code>str()</code> first, as in <code>"".join(str(n) for n in range(5))</code>, which gives <code>"01234"</code>. When you need a separator only between items, <code>join()</code> beats appending the separator yourself, which tends to leave a stray comma at the end.</p>
+
+<h2>A short note on Unicode and encoding</h2>
+<p>A Python <code>str</code> is a sequence of Unicode code points, not bytes. Files, sockets and terminals carry bytes, so text is encoded going out and decoded coming in. UTF-8 is the dominant encoding and can represent every code point using between one and four bytes.</p>
+<pre><code>s = "café"
+print(len(s))                            # 4 characters
+print(len(s.encode("utf-8")))            # 5 bytes
+print(s.encode("utf-8"))                 # b'caf\xc3\xa9'
+print(b"caf\xc3\xa9".decode("utf-8"))    # café
+</code></pre>
+<p><code>len()</code> counts code points, which is neither bytes nor visible glyphs: an <code>e</code> followed by a combining accent is two code points that look like a single character. Mojibake — the <code>cafÃ©</code> kind — means bytes were decoded with the wrong encoding. The working rule is simple: keep text as <code>str</code> inside the program, and encode only at the boundary where bytes are required.</p>
+<div class="callout warn"><b>Watch out.</b> <code>open()</code> without <code>encoding=</code> uses the platform default, which differs between machines — UTF-8 on most Linux systems, a legacy code page on some Windows setups. The same file then reads correctly on one computer and raises <code>UnicodeDecodeError</code> or produces mojibake on another. Pass <code>encoding="utf-8"</code> explicitly every time; Chapter 9 builds on that habit.</div>
+
+<div class="practice"><h2>Practice</h2><p>Exercises <b>ex-7-1</b> to <b>ex-7-3</b> on the site.</p><p><b>ex-7-1</b> slices and cleans a messy text field. <b>ex-7-2</b> prints an aligned report with f-strings. <b>ex-7-3</b> builds a long string with <code>join()</code> and compares it with repeated concatenation.</p></div>
+</section>
+
+<section class="chapter">
+<h1>Chapter 8 — Exceptions and Debugging</h1>
+<p class="lede">An exception is not a verdict on your ability. It is a message from the interpreter saying: at this line, with these values, this operation could not be completed. This chapter teaches you to read that message in seconds, handle the failures you can fix, let the rest surface with a useful traceback, and debug on purpose instead of by guesswork.</p>
+
+<h2>What a traceback tells you</h2>
+<p>A traceback is a list of frames, one per function call that was active when the error happened. Python prints them from the outermost call down to the innermost. That order is backwards for reading, so start at the bottom.</p>
+<pre><code>def average(values):
+    return sum(values) / len(values)
+
+print(average([]))
+</code></pre>
+<pre><code>Traceback (most recent call last):
+  File "stats.py", line 4, in &lt;module&gt;
+    print(average([]))
+  File "stats.py", line 2, in average
+    return sum(values) / len(values)
+ZeroDivisionError: division by zero
+</code></pre>
+<p>The last line gives the exception type and message: <code>ZeroDivisionError: division by zero</code>. That alone usually names the problem. The line above it is the deepest frame — the exact statement that failed, here <code>sum(values) / len(values)</code> inside <code>average</code>. From Python 3.11 onwards, caret markers under the expression point at the subexpression that broke, which is often more useful than the whole line.</p>
+<p>The frames above the deepest one tell the story of how you got there. Read upward from the failure: <code>average</code> was called from line 4 of the module, with an empty list. So the real cause is not division at all — an empty list reached a function that assumes at least one value. The traceback gives you the failure site; your job is to trace the bad value back to where it was born.</p>
+<p>Frames in library code are usually noise: if most of a traceback sits inside <code>site-packages</code> and one frame is yours, start there. Each frame gives you file, line number and function name, enough to jump straight to the spot.</p>
+
+<h2>try, except, else, finally</h2>
+<p>A <code>try</code> block marks code that might fail. Each <code>except</code> clause names the exception it handles. The <code>else</code> block runs only when no exception occurred, and <code>finally</code> runs no matter what — success, handled failure, or an exception still on its way out.</p>
+<pre><code>def parse_age(text):
+    try:
+        age = int(text)
+    except ValueError:
+        print(f"not a number: {text!r}")
+        return None
+    else:
+        print("parsed cleanly")
+        return age
+    finally:
+        print("parse_age finished")
+
+print(parse_age("42"))
+print(parse_age("forty-two"))
+</code></pre>
+<p>Keep as little as possible inside <code>try</code>. If the block contains code that cannot raise the exception you are handling, you widen the net until the handler catches something unrelated. <code>else</code> exists for exactly that: it keeps the success path outside the guarded region. <code>finally</code> is for cleanup that must happen — closing a handle, releasing a lock, deleting a temporary file — and it runs even when the function is returning.</p>
+
+<h2>Catch narrowly, not everything</h2>
+<p>An <code>except</code> clause matches the named class and its subclasses, so <code>except Exception</code> catches nearly everything while <code>except ValueError</code> catches only value errors. Name the exception you expect. When several are possible, use separate clauses ordered from specific to general, because only the first match runs.</p>
+<pre><code>def divide(a, b):
+    try:
+        return a / b
+    except ZeroDivisionError:
+        return float("inf")
+    except TypeError:
+        return None
+
+print(divide(6, 3))    # 2.0
+print(divide(6, 0))    # inf
+print(divide(6, "x"))  # None
+</code></pre>
+<p>Bind the exception with <code>as exc</code> when you need its message or attributes: <code>except OSError as exc: print(exc.strerror)</code>. The name is deleted at the end of the <code>except</code> block, which stops a stale reference from keeping the traceback alive.</p>
+<div class="callout warn"><b>Watch out.</b> A bare <code>except:</code> catches everything, including <code>KeyboardInterrupt</code> and <code>SystemExit</code>, so Ctrl+C stops working and the program cannot shut down cleanly. Worse is <code>except Exception: pass</code>, which swallows the error and leaves you with a wrong answer and no clue. If you must handle broadly, record the exception first — <code>traceback.print_exc()</code> or <code>print(type(exc).__name__, exc)</code> — and never discard it silently.</div>
+
+<h2>EAFP and LBYL</h2>
+<p>Two styles compete for the same job. LBYL, "look before you leap", checks first and acts second. EAFP, "it is easier to ask forgiveness than permission", acts and handles the failure. Python generally prefers EAFP, because a check can be invalidated between testing and acting: a file can be deleted, a key can be removed, a disk can fill up.</p>
+<pre><code>record = {"name": "Ada"}
+
+# LBYL
+if "name" in record:
+    name = record["name"]
+else:
+    name = "unknown"
+
+# EAFP
+try:
+    name = record["name"]
+except KeyError:
+    name = "unknown"
+
+# simplest when the API offers it
+name = record.get("name", "unknown")
+</code></pre>
+<p>All three are correct here. The third is best because a well-designed API already encodes the default. Use EAFP when failure is rare and the cost of a failed attempt is small; use LBYL when failure would be expensive or would leave something half-done. What matters is that both branches are honest — neither style is an excuse to skip error handling.</p>
+
+<h2>Raising, re-raising, and custom exceptions</h2>
+<p><code>raise</code> reports a problem the current function cannot fix. Raise early, with a message that includes the offending value, and let a caller who knows more decide.</p>
+<pre><code>def set_percentage(value):
+    if not 0 &lt;= value &lt;= 100:
+        raise ValueError(f"percentage out of range: {value}")
+    return value
+
+print(set_percentage(80))
+</code></pre>
+<p>Inside an <code>except</code> block, a bare <code>raise</code> re-raises the current exception with its original traceback intact. That is the right move when you want to log, add context or clean up without pretending you handled the problem. If you raise a different exception instead, chain it with <code>from exc</code> so the original cause stays visible in the report.</p>
+<pre><code>class InventoryError(Exception):
+    """Base class for inventory problems."""
+
+
+class OutOfStock(InventoryError):
+    def __init__(self, sku, wanted):
+        super().__init__(f"{sku}: wanted {wanted}, none left")
+        self.sku = sku
+        self.wanted = wanted
+
+
+def reserve(sku, count, stock):
+    if stock &lt;= 0:
+        raise OutOfStock(sku, count)
+    return stock - count
+
+try:
+    print(reserve("A-12", 3, 0))
+except InventoryError as exc:
+    print(exc.sku, exc.wanted)   # A-12 3
+    print(exc)                   # A-12: wanted 3, none left
+</code></pre>
+<p>A custom class is worth writing when callers must tell your failures apart from everything else. Subclass an existing exception when yours is a kind of it, as in <code>class ConfigError(ValueError)</code>, and keep one base class per package so one <code>except</code> catches the family.</p>
+
+<h2>Debugging on purpose: print, assert, breakpoint()</h2>
+<p>Debugging is evidence gathering, not guessing. Print the value that should be there and the value that is there, with <code>!r</code> so whitespace is visible, then compare. Print the type too: <code>"5"</code> and <code>5</code> look alike in output and behave nothing alike.</p>
+<pre><code>values = ["3", "4", "5"]
+total = 0
+for item in values:
+    print(f"item={item!r} type={type(item).__name__}")
+    total += int(item)
+print(total)   # 12
+</code></pre>
+<p>Replace one entry with <code>"x"</code> and the printout becomes the evidence: the value is a <code>str</code>, and <code>int()</code> refuses it, so the failure is a parsing problem rather than an arithmetic one. Printing the type is what separates the two.</p>
+<p>An <code>assert</code> states an invariant that must hold at that point. When it does not, Python raises <code>AssertionError</code> with your message, which turns a silent wrong result into a loud, located failure.</p>
+<pre><code>def mean(values):
+    assert values, "mean() needs at least one value"
+    total = sum(values)
+    assert total &gt;= 0, "total went negative"
+    return total / len(values)
+</code></pre>
+<p>Assertions check the programmer's assumptions, not user input: they are stripped out under <code>python -O</code>, so never use one to validate outside data. Raise a real exception instead.</p>
+<p>When printing is not enough, call <code>breakpoint()</code> and the program stops there in the built-in debugger. You can inspect any variable, step one line at a time, and see the exact state at the failure.</p>
+<pre><code>def total_price(prices, discount):
+    subtotal = sum(prices)
+    breakpoint()          # execution pauses here
+    return subtotal * (1 - discount)
+
+print(total_price([10, 20], 0.1))
+</code></pre>
+<pre><code># at the (Pdb) prompt
+# l        list the surrounding source
+# p prices print an expression
+# n        next line (step over calls)
+# s        step into a call
+# c        continue to the end or the next breakpoint
+# q        quit the debugger and the program
+</code></pre>
+<p>You can also start a whole script under the debugger with <code>python -m pdb script.py</code>, which helps when the failure happens before you thought to add a breakpoint.</p>
+<div class="callout tip"><b>Tip.</b> Read errors calmly and in a fixed order: the last line for type and message, the deepest frame for the failing statement, then upward for the caller that supplied the bad value. Say the message out loud as a sentence — "division by zero, because the list was empty" — and the fix usually names itself.</div>
+
+<div class="practice"><h2>Practice</h2><p>Exercises <b>ex-8-1</b> to <b>ex-8-3</b> on the site.</p><p><b>ex-8-1</b> reads a traceback and fixes the bug it points at. <b>ex-8-2</b> handles a bad number without a bare <code>except</code>. <b>ex-8-3</b> defines a custom exception and uses it to reject invalid input.</p></div>
+</section>
+
+<section class="chapter">
+<h1>Chapter 9 — Files and Directories</h1>
+<p class="lede">Sooner or later every useful program touches the disk: read a configuration file, append to a log, load a CSV export, walk a folder of images. This chapter covers opening files with an explicit encoding, using <code>with</code> so handles always close, streaming large files line by line, and building paths with <code>pathlib</code> so your code behaves the same on every operating system.</p>
+
+<h2>Opening files: modes and encoding</h2>
+<p><code>open()</code> returns a file object. The mode string decides what you may do with it: <code>"r"</code> reads and is the default, <code>"w"</code> writes and truncates, <code>"a"</code> appends, <code>"x"</code> creates and fails if the file already exists. Add <code>"b"</code> for binary mode, which hands you <code>bytes</code> instead of <code>str</code>, and <code>"+"</code> when you need both reading and writing on one handle.</p>
+<pre><code>from pathlib import Path
+
+path = Path("notes.txt")
+
+with open(path, "r", encoding="utf-8") as handle:
+    first_line = handle.readline()
+
+with open(path, "rb") as handle:
+    header = handle.read(4)
+
+print(type(first_line).__name__)   # str
+print(type(header).__name__)       # bytes
+</code></pre>
+<p>In text mode always pass <code>encoding="utf-8"</code>. Without it Python uses the platform default, so a file written on one machine can fail to decode on another, or decode into garbled characters. Binary mode takes no encoding at all — you are handed raw bytes, and decoding becomes your decision.</p>
+<div class="callout warn"><b>Watch out.</b> Opening with <code>"w"</code> erases the file's contents the moment <code>open()</code> returns, before you write a single byte, and there is no undo. Use <code>"x"</code> when the file must not already exist, <code>"a"</code> when you mean to add to it, and keep <code>"w"</code> for files you intend to rebuild from scratch.</div>
+
+<h2>The with statement</h2>
+<p><code>with</code> guarantees the file is closed when the block ends, including when it ends because of an exception. Call <code>open()</code> inside a <code>with</code> and you never have to remember <code>close()</code>, and you cannot leak a handle by returning early.</p>
+<pre><code>with open("log.txt", "a", encoding="utf-8") as handle:
+    handle.write("started\n")
+# the handle is closed here, even if write() raised
+
+with (
+    open("source.txt", encoding="utf-8") as source,
+    open("copy.txt", "w", encoding="utf-8") as target,
+):
+    target.write(source.read())
+</code></pre>
+<p>The parenthesised form with two files needs Python 3.10 or newer; on older versions use two nested <code>with</code> statements. The object that <code>with</code> manages is called a context manager: it defines <code>__enter__</code> and <code>__exit__</code>, and <code>__exit__</code> runs no matter how the block ends. That is why the same pattern also covers locks, database transactions and temporary directories.</p>
+<p>For short files, <code>Path.read_text()</code> and <code>Path.write_text()</code> open, use and close in one call, and they accept <code>encoding</code> too: <code>Path("notes.txt").read_text(encoding="utf-8")</code>. They are convenient, but they read the whole file into memory, so they suit configuration and small data rather than logs.</p>
+
+<h2>Reading line by line</h2>
+<p>Iterating over the file object yields one line at a time, newline included, without loading the whole file. This is the pattern to use for logs, exports and anything whose size you do not control.</p>
+<pre><code>total = 0
+with open("numbers.txt", encoding="utf-8") as handle:
+    for line in handle:
+        line = line.rstrip("\n")
+        if not line:
+            continue            # skip blank lines
+        total += int(line)
+print(total)
+</code></pre>
+<p>Text mode translates line endings for you: <code>\r\n</code> from a Windows file arrives as <code>\n</code>, which is why <code>rstrip("\n")</code> is enough. If you need the raw endings, pass <code>newline=""</code> to <code>open()</code> and that translation stops.</p>
+<div class="callout warn"><b>Watch out.</b> <code>handle.readlines()</code> and <code>handle.read()</code> load the entire file into memory. On a two-gigabyte log they exhaust memory or push the machine into swap, and the program appears to hang before it dies. Iterate the handle instead, or read fixed-size chunks with <code>handle.read(65536)</code> when you need bytes.</div>
+<p><code>readline()</code> returns one line, <code>readlines()</code> returns a list of all of them, and iteration hands them over lazily. Prefer iteration unless you genuinely need random access to every line at once.</p>
+
+<h2>Writing and appending</h2>
+<p><code>write()</code> does not add a newline for you, so include <code>\n</code> yourself. Pass <code>newline="\n"</code> to <code>open()</code> when writing if you want byte-identical output everywhere: it disables translation, so a file written on one system reads the same on every other.</p>
+<pre><code>from pathlib import Path
+
+rows = ["alpha", "beta", "gamma"]
+
+with open("out.txt", "w", encoding="utf-8", newline="\n") as handle:
+    for row in rows:
+        handle.write(row + "\n")
+
+with open("out.txt", "a", encoding="utf-8", newline="\n") as handle:
+    handle.write("delta\n")
+
+text = Path("out.txt").read_text(encoding="utf-8")
+print(text.splitlines())   # ['alpha', 'beta', 'gamma', 'delta']
+</code></pre>
+<p><code>splitlines()</code> splits on every line-ending convention and drops the terminators, which makes comparisons easier than splitting on <code>"\n"</code>. Flushing matters when another process reads the file while yours is still running: <code>handle.flush()</code> pushes buffered bytes out, and closing the handle flushes automatically.</p>
+
+<h2>pathlib for paths and directories</h2>
+<p>Build paths with the <code>/</code> operator instead of gluing strings. <code>Path</code> supplies the separator for the current system, collapses redundant slashes, and exposes named parts.</p>
+<pre><code>from pathlib import Path
+
+project = Path.home() / "projects" / "demo"
+project.mkdir(parents=True, exist_ok=True)
+
+data = project / "data.txt"
+data.write_text("hello\n", encoding="utf-8")
+
+print(data.exists())                       # True
+print(data.name, data.stem, data.suffix)   # data.txt data .txt
+print(data.parent)                         # .../projects/demo
+print(data.read_text(encoding="utf-8").strip())
+</code></pre>
+<p><code>mkdir(parents=True, exist_ok=True)</code> creates missing parents and does not complain when the directory already exists, which is what you want in setup code. Beyond that, <code>Path</code> offers <code>iterdir()</code>, <code>glob()</code>, <code>rglob()</code>, <code>rename()</code>, <code>unlink()</code>, <code>is_file()</code> and <code>is_dir()</code>. Paths are objects, so they compare and print sensibly and pass straight into <code>open()</code>.</p>
+<h3>os.listdir versus glob</h3>
+<p><code>os.listdir()</code> returns bare names — no directory part, no filtering, directories included. <code>glob</code> returns full paths that match a pattern. With <code>pathlib</code> you rarely need either from <code>os</code>.</p>
+<pre><code>import os
+from pathlib import Path
+
+names = os.listdir(".")                      # names only, unfiltered
+print(sorted(n for n in names if n.endswith(".txt")))
+
+for path in Path(".").glob("*.txt"):         # paths, filtered
+    print(path.name)
+
+for path in Path(".").rglob("*.py"):         # recursive
+    print(path.relative_to("."))
+</code></pre>
+<p>Neither call filters hidden entries, and neither guarantees an order, so sort the results before printing or comparing them. Use <code>rglob()</code> for recursive matches, or <code>glob("**/*.py")</code>, which means the same thing.</p>
+<div class="callout tip"><b>Tip.</b> Prefer <code>pathlib</code> in new code. <code>Path</code> objects work on every platform, support <code>/</code> for joining, <code>.parent</code> and <code>.with_suffix()</code> for derivation, and pass directly to <code>open()</code>. Reach for <code>os.path</code> only when maintaining older code.</div>
+
+<h2>CSV files and separators</h2>
+<p>The <code>csv</code> module handles quoting, embedded commas and header rows, none of which string splitting gets right. Write with <code>csv.writer</code> or <code>csv.DictWriter</code>, and read with <code>csv.reader</code> or <code>csv.DictReader</code>.</p>
+<pre><code>import csv
+
+with open("scores.csv", "w", encoding="utf-8", newline="") as handle:
+    writer = csv.writer(handle)
+    writer.writerow(["name", "score"])
+    writer.writerow(["Ada", 93])
+    writer.writerow(["Grace", 88])
+
+with open("scores.csv", encoding="utf-8", newline="") as handle:
+    for row in csv.DictReader(handle):
+        print(row["name"], row["score"])
+</code></pre>
+<div class="callout warn"><b>Watch out.</b> Pass <code>newline=""</code> whenever you hand a file to <code>csv</code>. The module writes its own line terminators; with translation left on, Windows turns each one into a blank row between records. It is the most common CSV bug, and the fix is a single keyword argument.</div>
+<p>Never hard-code a separator. Three of them bite: the path separator, the CSV delimiter, and the line ending. Join paths with <code>/</code> through <code>Path</code> rather than typing <code>"\\"</code> or <code>"/"</code>, which assumes an operating system. Pass the delimiter to <code>csv</code> explicitly rather than assuming a comma — the same export from a spreadsheet can arrive semicolon-separated in one locale and tab-separated in another.</p>
+<pre><code>import csv
+
+with open("export.csv", encoding="utf-8", newline="") as handle:
+    sample = handle.read(2048)
+    handle.seek(0)
+    dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
+    for row in csv.DictReader(handle, dialect=dialect):
+        print(row.get("name"), row.get("score"))
+</code></pre>
+<p>When the source is under your control, state the delimiter instead of guessing: <code>csv.DictReader(handle, delimiter=";")</code> is clearer than sniffing and far clearer than <code>line.split(",")</code>. Sniffing is a fallback for files you did not produce.</p>
+<div class="callout tip"><b>Tip.</b> Keep the encoding, newline and delimiter decisions in one small helper that opens the file. Then a change of format is a single edit rather than a search through the code.</div>
+
+<div class="practice"><h2>Practice</h2><p>Exercises <b>ex-9-1</b> to <b>ex-9-3</b> on the site.</p><p><b>ex-9-1</b> totals a file line by line without reading it all at once. <b>ex-9-2</b> walks a directory tree with <code>pathlib</code>. <b>ex-9-3</b> reads and writes a CSV file with the delimiter stated, not assumed.</p></div>
+</section>

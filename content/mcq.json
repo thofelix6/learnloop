@@ -1,0 +1,387 @@
+[
+ {
+  "slug": "llm-c1-1",
+  "options": [
+   "The tokeniser predicts the next word, and the model converts text into a fixed list of ids.",
+   "The tokeniser learns the vocabulary, and the model picks the single most likely whole sentence.",
+   "The tokeniser turns text into ids from a fixed vocabulary; the model returns a probability for every next token.",
+   "The tokeniser turns ids back into text, and the model converts each id into an embedding vector."
+  ],
+  "correct": 2,
+  "explanation": "The tokeniser only maps text onto integer ids drawn from a fixed vocabulary, while the model's output is a probability for every token in that vocabulary. The distractors swap the two roles or give the model a single certain answer instead of a distribution."
+ },
+ {
+  "slug": "llm-c1-2",
+  "options": [
+   "Roughly 4.17 nats, the log of 65; a loss at or above it means no learning has happened.",
+   "Roughly 65 nats, one for each token, since a uniform guess pays a full nat per vocabulary entry.",
+   "Roughly 8.34 nats, double the log of 65, because input and output are both counted.",
+   "Roughly 1.10 nats, the log of 3, since most tokens in a small vocabulary are rare."
+  ],
+  "correct": 0,
+  "explanation": "A uniform guess gives each of 65 tokens probability 1/65, and -log(1/65) = log(65) ≈ 4.17 nats, which is exactly the no-learning baseline. The 65-nat option mistakes the vocabulary count for the loss, and 1.10 is log(3), the three-way guess."
+ },
+ {
+  "slug": "llm-c1-3",
+  "options": [
+   "The tokeniser stores a translation table, so swapped vocabulary ids produce the other language.",
+   "Attention heads are pre-trained on grammar rules that map one language onto another.",
+   "The model translates because its embedding vectors are aligned across languages by design.",
+   "Translations appear side by side in its training text, so parallel meaning becomes predictable."
+  ],
+  "correct": 3,
+  "explanation": "Translation emerges because parallel sentences in the training text make the other language a predictable continuation, and without parallel text the ability disappears. The distractors assume an explicit translation table, grammar rules, or pre-aligned embeddings, none of which exist."
+ },
+ {
+  "slug": "llm-c1-4",
+  "options": [
+   "A bug in the code: the sampler picked a token that was not the highest-probability one.",
+   "Neither: the model has no notion of truth, and \"Lyon\" was a plausible-looking continuation.",
+   "A bug in the data: the corpus must have been corrupted to pair France with Lyon.",
+   "A bug in both: correct code on correct data would always name the true capital."
+  ],
+  "correct": 1,
+  "explanation": "The model produces the most likely continuation of the text, not the true one, so a wrong fact is expected behaviour rather than a code or data fault. A sampler bug and a corrupted corpus are the tempting but wrong explanations."
+ },
+ {
+  "slug": "llm-c2-1",
+  "options": [
+   "raw (2, 16); embedding (16, 128); logits (16, 100); loss (2, 16)",
+   "raw (2, 16); embedding (2, 16, 128); logits (2, 100); loss (2,)",
+   "raw (2, 16); embedding (2, 16, 128); logits (2, 16, 100); loss ()",
+   "raw (2, 16, 1); embedding (2, 16, 128); logits (2, 16, 100); loss (1,)"
+  ],
+  "correct": 2,
+  "explanation": "The batch and sequence axes survive every stage, the vocabulary size replaces the embedding width at the logits, and the loss is one averaged scalar. Dropping the batch axis or leaving a one-element loss vector are the usual slips."
+ },
+ {
+  "slug": "llm-c2-2",
+  "options": [
+   "6e13 FLOPs, about 20 minutes at 5e10 FLOP/s.",
+   "1e16 FLOPs, about 55 hours at 5e10 FLOP/s.",
+   "6e15 FLOPs, about 33 minutes at 5e10 FLOP/s.",
+   "6e15 FLOPs, about 33 hours at 5e10 FLOP/s."
+  ],
+  "correct": 3,
+  "explanation": "Training costs about 6 FLOPs per parameter per token, so 6 × 1e7 × 1e8 = 6e15 FLOPs, and dividing by 5e10 FLOP/s gives 1.2e5 s ≈ 33 hours. The 33-minute option keeps the right total but skips the seconds-to-hours conversion."
+ },
+ {
+  "slug": "llm-c2-3",
+  "options": [
+   "The loss averages over every position, so depth changes its value but not its scalar shape.",
+   "Deeper models always normalise their loss, which shrinks the tensor back to a scalar.",
+   "The loss is computed per layer, and only the final layer's average is reported.",
+   "Layer count affects the logits width, but cross-entropy removes that extra dimension."
+  ],
+  "correct": 0,
+  "explanation": "Cross-entropy reduces the batch-position-vocabulary logits to a single mean, so adding layers changes the number, not the shape. Per-layer losses and logits-width effects are invented mechanisms."
+ },
+ {
+  "slug": "llm-c2-4",
+  "options": [
+   "Remove the embedding stage and feed ids straight to the blocks; nothing breaks, but accuracy drops.",
+   "Remove the softmax-and-sample stage and take the argmax of the logits directly; you only lose variety.",
+   "Remove the final LayerNorm and read the logits; sampling still works, and output becomes greedy.",
+   "Remove the position-embedding stage and sample as usual; nothing breaks, and output stays varied."
+  ],
+  "correct": 1,
+  "explanation": "Greedy decoding is simply the argmax of the logits, so the sampling stage is the only removable part and the cost is diversity rather than correctness. Removing embeddings or the final LayerNorm alters the model itself and does break things."
+ },
+ {
+  "slug": "llm-c3-5",
+  "options": [
+   "It returns [0.5, 0.25, 0.25], loss 0.693, the same as a random two-way guess.",
+   "It returns [1/3, 1/3, 1/3], loss 0.000, since a flat distribution carries no surprise.",
+   "It returns [1/3, 1/3, 1/3], loss 1.099, exactly the uncertainty of a fresh model.",
+   "It returns [0.9, 0.05, 0.05], loss 0.105, showing the model already prefers one token."
+  ],
+  "correct": 2,
+  "explanation": "Equal logits give equal probabilities of 1/3, and -log(1/3) = log 3 ≈ 1.099, the loss every untrained model starts at. A flat softmax actually maximises surprise, so a loss of 0.000 cannot be right."
+ },
+ {
+  "slug": "llm-c3-6",
+  "options": [
+   "Loss 0.05, worse than the 4.17 baseline because the probability is so small.",
+   "Loss 1.30, better than the 4.17 baseline by almost three nats.",
+   "Loss 4.17, unchanged, because the vocabulary still contains 65 possible tokens.",
+   "Loss 3.00, better than the 4.17 baseline by about one nat."
+  ],
+  "correct": 3,
+  "explanation": "Loss is -log(0.05) ≈ 3.00, which beats the log(65) ≈ 4.17 random-guess baseline by roughly one nat. Using the probability itself as the loss, or assuming the baseline never moves, are the common errors."
+ },
+ {
+  "slug": "llm-c3-7",
+  "options": [
+   "The weights jump to 6 and 0, the loss worsens to 9.0, and it oscillates forever.",
+   "The weights land on the minimum in one step, and the loss reaches 0.0 immediately.",
+   "The weights shrink toward zero, and the loss falls smoothly but more slowly.",
+   "The weights double each step, and the loss diverges to infinity after a few steps."
+  ],
+  "correct": 0,
+  "explanation": "A step of 1.0 times a gradient of -6 overshoots the minimum to w1 = 6, where the loss is 9.0, then back to 0 — a permanent oscillation. Overshooting the minimum, not landing on it, is the signature of an oversized step."
+ },
+ {
+  "slug": "llm-c3-8",
+  "options": [
+   "Larger vocabularies contain rarer tokens, and rare tokens are intrinsically harder to predict.",
+   "Random guessing costs log(V), so it starts at 10.83 versus 4.17; subtract log(V) before comparing.",
+   "A larger vocabulary needs more parameters, and extra parameters always raise the loss.",
+   "The 50,257-token model is simply worse trained, so its loss is higher on the same text."
+  ],
+  "correct": 1,
+  "explanation": "Loss includes the cost of choosing among V tokens, so its floor is log(V): 10.83 versus 4.17, which is why the raw numbers are not comparable. Token rarity, parameter count and training quality are tempting but wrong explanations."
+ },
+ {
+  "slug": "llm-c3-9",
+  "options": [
+   "p = 0.10, assuming the log is base ten rather than natural.",
+   "p = 0.632, because the loss is the complement of the probability.",
+   "p = 0.368, because e raised to the power -1 is about 0.368.",
+   "p = 1.0, because a loss of 1.0 means the model was certain."
+  ],
+  "correct": 2,
+  "explanation": "A loss of 1.0 means p = e^-1 ~ 0.368. The 0.632 option is 1 - e^-1, and the 0.10 option wrongly assumes base-10 logs."
+ },
+ {
+  "slug": "llm-c3-10",
+  "options": [
+   "It puts more probability on the real next token on average, so its surprise falls.",
+   "It has memorised the training text, so its predictions on unseen text improve too.",
+   "Its weights shrink toward zero, making the output distribution numerically stable.",
+   "Its softmax temperature is lowered each step, sharpening the distribution toward truth."
+  ],
+  "correct": 0,
+  "explanation": "Lower loss is just lower average surprise: the model assigns the actual next token more probability. The distractors swap in memorisation, weight decay and sampler tricks, none of which is what the loss measures."
+ },
+ {
+  "slug": "llm-l1-1",
+  "options": [
+   "The pair is merged during BPE training, so the rare character vanishes from the text.",
+   "Encoding silently swaps in the nearest common character and continues without error.",
+   "It is encoded directly as its Unicode code point, bypassing the vocabulary entirely.",
+   "The model barely learns it and often confuses it; if absent from the vocabulary, encoding raises KeyError."
+  ],
+  "correct": 3,
+  "explanation": "Rare characters are barely trained on, so the model confuses them, and a character missing from the vocabulary makes encode raise KeyError - the reason real tokenisers fall back to bytes."
+ },
+ {
+  "slug": "llm-l1-2",
+  "options": [
+   "The loop crashes once there are no pairs left to merge, around merge 300.",
+   "Most words collapse to single tokens, each seen once, so the model cannot generalise.",
+   "Characters stop being tokens, so the vocabulary grows to the full 4,000 characters.",
+   "The model generalises better, because longer tokens carry more context per step."
+  ],
+  "correct": 1,
+  "explanation": "Around 200-300 merges on 4,000 characters turn most words into single tokens, each seen only once, so the model cannot generalise and the vocabulary is specific to that file. The loop does not crash, and longer tokens do not help."
+ },
+ {
+  "slug": "llm-l1-3",
+  "options": [
+   "It raises KeyError, because the pair is missing from the pair counts.",
+   "It raises ValueError and stops, because no pairs remain to be merged.",
+   "It merges nothing: max() picks the next most frequent pair that does exist.",
+   "It adds the pair as a new token anyway, seeded with a count of zero."
+  ],
+  "correct": 2,
+  "explanation": "max() simply selects the most frequent pair that actually exists, so a nonexistent q-z rule is silently ignored. ValueError only arrives when the vocabulary is empty and there are no pairs left."
+ },
+ {
+  "slug": "llm-l1-4",
+  "options": [
+   "Exactly the same id list, which is the round-trip property to test on every tokeniser.",
+   "A shorter list, because re-encoding merges the decoded characters again from scratch.",
+   "The same ids with a special end-of-text token appended at the end.",
+   "A different but equivalent list, since tokenisers are not reliably reversible."
+  ],
+  "correct": 0,
+  "explanation": "Decoding then re-encoding must return the original ids - that round-trip property is the test for every tokeniser you write. The claim that tokenisers are not reliably reversible is the misconception."
+ },
+ {
+  "slug": "llm-l2-1",
+  "options": [
+   "It falls faster at first, then levels off, because larger steps cover more of the curve.",
+   "It oscillates between two values forever, because the step matches the gap to the minimum.",
+   "It stays flat, because gradients are clipped to stop any single step from being large.",
+   "It explodes to NaN within a few dozen steps: each step overshoots the minimum by more than its distance."
+  ],
+  "correct": 3,
+  "explanation": "At learning rate 30 every step overshoots by more than the distance to the minimum, so the loss diverges to NaN. Learning rate exactly 1.0 is the case that oscillates forever instead."
+ },
+ {
+  "slug": "llm-l2-2",
+  "options": [
+   "It reaches 3.0 in about 200 steps, then diverges because the step is too small.",
+   "The first 200 steps barely move it; thousands are needed, but it stays stable.",
+   "It never reaches 3.0, because such a small step cannot escape a local minimum.",
+   "It reaches 3.0 in the same number of steps, since only the gradient direction matters."
+  ],
+  "correct": 1,
+  "explanation": "A small step moves slowly but reliably, needing thousands of steps to reach 3.0; it is stable rather than stuck, so the local-minimum claim is the misconception."
+ },
+ {
+  "slug": "llm-l2-3",
+  "options": [
+   "It falls, because the model is exposed to fewer confusing patterns.",
+   "It is unchanged, because validation data plays no part in training.",
+   "It rises, because the model memorises the small slice and generalises worse.",
+   "It rises only if the learning rate is also raised, since capacity is unchanged."
+  ],
+  "correct": 2,
+  "explanation": "Ten times less data means the model memorises the small training slice and generalises worse, so validation loss goes up. Validation loss is not shielded from changes on the training side."
+ },
+ {
+  "slug": "llm-l2-4",
+  "options": [
+   "These are word-initial letter frequencies: the model has learned counts, not language.",
+   "These letters begin the most common English words, so it has learned grammar.",
+   "The space is not a real token, so it predicts letters rather than tokens.",
+   "The counts are too high, which shows the softmax is not normalising over the vocabulary."
+  ],
+  "correct": 0,
+  "explanation": "The top continuations of a space are just word-initial letter counts (t, a, h, w, s) - bigram statistics, not syntax, and not evidence of a tokenisation or softmax bug."
+ },
+ {
+  "slug": "llm-l2-5",
+  "options": [
+   "Softmax returns negative values, so the loss goes negative and training stalls.",
+   "The loss grows slowly but stays finite, because larger weights only slow convergence.",
+   "Nothing breaks at first, but the gradients vanish once the logits grow large.",
+   "exp overflows to infinity, infinity divided by infinity is NaN, so every later gradient is NaN."
+  ],
+  "correct": 3,
+  "explanation": "Without the max subtraction, exp overflows to inf, inf/inf gives NaN, and NaN poisons every subsequent gradient. The failure is explosion, not vanishing gradients."
+ },
+ {
+  "slug": "llm-l3-1",
+  "options": [
+   "The model learned a better representation, because attention now sees the whole sequence.",
+   "Each position can see its own target, so the model learned to copy and samples are degenerate.",
+   "The loss is miscomputed, because without the mask the average includes padded positions.",
+   "The model learned to predict from future tokens, which is legal at inference time."
+  ],
+  "correct": 1,
+  "explanation": "With no mask each position can see its own target, so the loss collapses because the model learned to copy rather than predict; samples are degenerate, not better."
+ },
+ {
+  "slug": "llm-l3-2",
+  "options": [
+   "Eight heads: each head owns a full-width projection, so the parameters multiply.",
+   "One head: splitting the width shrinks the shared output projection.",
+   "The same: attention costs 4d squared either way, so heads change layout, not totals.",
+   "Eight heads: more heads add one bias term each, a small increase."
+  ],
+  "correct": 2,
+  "explanation": "Total attention parameters stay at 4d squared regardless of head count; heads only partition the same width into smaller matrices. The distractors assume more heads multiply parameters, while the reverse-head option invents a shrinking projection."
+ },
+ {
+  "slug": "llm-l3-3",
+  "options": [
+   "[1.0, 0.0, 0.0] - unmasked softmax collapses onto the current token.",
+   "[0.348, 0.189, 0.464] - the weights would simply reverse order.",
+   "[0.333, 0.333, 0.333] - the scores cancel, giving uniform attention.",
+   "[0.464, 0.189, 0.348] - token 0 would attend to future positions too."
+  ],
+  "correct": 3,
+  "explanation": "Softmax over [0.39, -0.51, -0.15] gives [0.464, 0.189, 0.348], so without the mask token 0 spreads attention into later positions. The other options mistake softmax for an argmax, a reversal, or a uniform average."
+ },
+ {
+  "slug": "llm-l3-4",
+  "options": [
+   "Look for a band one position left of the diagonal, where each row peaks on the previous token.",
+   "Look for a bright main diagonal, since previous-token heads copy themselves.",
+   "Look for a column of equal weights, which marks a fixed-offset head.",
+   "Look for the last row attending to token zero, the signature of a shift head."
+  ],
+  "correct": 0,
+  "explanation": "A previous-token head puts its weight one position left of the main diagonal, so each row attends to the token just before it. Off-diagonal bands point backwards in position, not to a fixed column or to the token itself."
+ },
+ {
+  "slug": "llm-l4-1",
+  "options": [
+   "About 790k in total, since the blocks share one set of weights.",
+   "About 5.5 M more, roughly 790k for each of the seven extra blocks at d = 256.",
+   "Nothing measurable: only the embedding matrix depends on the layer count.",
+   "About 55 M more, because every block adds 7.9 M parameters."
+  ],
+  "correct": 1,
+  "explanation": "Each block adds 12d squared + 13d, about 790k at d = 256, so seven extra blocks add roughly 5.5 M parameters. The distractors misplace a decimal point or assume blocks share weights."
+ },
+ {
+  "slug": "llm-l4-2",
+  "options": [
+   "Training runs but the loss stalls, because the extra unit is ignored.",
+   "The model silently broadcasts, adding one zero column to every token.",
+   "The checkpoint fails to load, but the forward pass is unaffected.",
+   "The forward pass raises a shape mismatch naming expected 257 against actual 256."
+  ],
+  "correct": 3,
+  "explanation": "LayerNorm is built for a 257-wide input, so the 256-wide activations trigger a shape mismatch naming both sizes. There is no silent broadcast or ignored unit; the error appears in the forward pass, not at load time."
+ },
+ {
+  "slug": "llm-l4-3",
+  "options": [
+   "Because ln_f holds most of the parameters in deep models.",
+   "Because shallow models skip normalisation at initialisation anyway.",
+   "Because residual additions accumulate magnitude, so final normalisation matters more with depth.",
+   "Because deep models use a different learning rate for the final layer."
+  ],
+  "correct": 2,
+  "explanation": "Every residual addition compounds the activation scale, so after twelve blocks the final LayerNorm is doing real work, while after two blocks the magnitudes are still tame. The distractors wrongly tie the effect to parameters or a separate learning rate."
+ },
+ {
+  "slug": "llm-l4-4",
+  "options": [
+   "Token order: the model treats the sequence as a bag, so structure disappears.",
+   "The vocabulary: unknown positions are mapped to the unknown token.",
+   "The causal mask: attention can now see future tokens.",
+   "Only the line breaks: word order is unaffected but formatting is lost."
+  ],
+  "correct": 0,
+  "explanation": "Without position embeddings each token carries no location, so the model sees an unordered bag of tokens and output loses ordering and line structure. The mask and vocabulary are untouched, and word order itself is what is missing."
+ },
+ {
+  "slug": "llm-l6-1",
+  "options": [
+   "Chaotic text, because low temperature widens the distribution.",
+   "Repetitive, looping text: the sampler is nearly greedy and deterministic.",
+   "Empty output, because every probability rounds to zero.",
+   "The same as at T = 1.0, since temperature only scales the logits' sign."
+  ],
+  "correct": 1,
+  "explanation": "Temperature 0.01 makes the distribution almost one-hot, so sampling repeatedly picks the top token and loops. Low temperature narrows rather than widens the distribution, and probabilities stay positive."
+ },
+ {
+  "slug": "llm-l6-2",
+  "options": [
+   "It becomes more diverse, because top-k keeps the k most likely tokens.",
+   "It matches greedy only at low temperature, not at T = 1.0.",
+   "It differs, because top-k renormalises before sampling but greedy does not.",
+   "Identical: keeping only the single argmax is exactly greedy decoding."
+  ],
+  "correct": 3,
+  "explanation": "Top-k with k = 1 retains just the highest-probability token, which is the definition of greedy decoding, so the outputs match at any temperature. Renormalising over one token changes nothing."
+ },
+ {
+  "slug": "llm-l6-3",
+  "options": [
+   "Several distinct outputs; dropping to T = 0.3 usually gives one or two.",
+   "Exactly one, because a fixed prompt always maps to a fixed output.",
+   "Exactly five, since temperature 1.0 makes every run unique.",
+   "One at T = 1.0, but several once temperature drops to 0.3."
+  ],
+  "correct": 0,
+  "explanation": "At T = 1.0 sampling is broad enough to vary across runs, while at T = 0.3 the narrowed distribution converges on the same text. The distractors reverse that relationship or confuse sampling with a deterministic function."
+ },
+ {
+  "slug": "llm-l6-4",
+  "options": [
+   "Of the model alone: a looping corpus forces every sampler to repeat.",
+   "Of the sampler alone: retuning temperature fixes any looping model.",
+   "Of both: the model supplies a repeating distribution and the sampler decides whether to reinforce it.",
+   "Of neither: loops indicate a corrupted checkpoint rather than decoding."
+  ],
+  "correct": 2,
+  "explanation": "The model contributes a distribution that keeps favouring repetition, and the sampler controls whether that repetition is reinforced, so the loop belongs to both. Fixes start at the sampler level, then at the model only if the corpus itself repeats."
+ }
+]

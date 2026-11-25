@@ -1,0 +1,422 @@
+[
+  {
+    "slug": "ex-5-1",
+    "chapter": 5,
+    "title": "Second-largest value without sorting",
+    "prompt": "Write a function second_largest(numbers) that returns the second largest distinct value in a list of integers, without using sorted() or list.sort().\n\nnumbers: a list of integers; it may be empty and may contain duplicates and negative values.\nReturn: the second largest distinct integer, or None when the list contains fewer than two distinct values.\n\nExamples:\nsecond_largest([3, 1, 4, 4, 2]) returns 3\nsecond_largest([10, 9, 8]) returns 9\nsecond_largest([5, 5]) returns None\n\nEdge cases: an empty list returns None; a single value returns None; duplicates of the maximum count as one value, so [5, 5, 4] returns 4; negative numbers behave normally, so [-3, -1, -2] returns -2.",
+    "starter": "def second_largest(numbers):\n    \"\"\"Return the second largest distinct value in numbers, or None.\"\"\"\n    raise NotImplementedError",
+    "tests": [
+      {
+        "name": "basic ordering",
+        "code": "assert second_largest([3, 1, 4, 4, 2]) == 3\nassert second_largest([10, 9, 8]) == 9\nassert second_largest([0, 7, 3]) == 3"
+      },
+      {
+        "name": "fewer than two distinct values",
+        "code": "assert second_largest([5, 5, 5]) is None\nassert second_largest([1]) is None\nassert second_largest([]) is None"
+      },
+      {
+        "name": "duplicates and negatives",
+        "code": "assert second_largest([5, 5, 4]) == 4\nassert second_largest([-3, -1, -2]) == -2\nassert second_largest([10, -5, 10, -5, 7]) == 7"
+      }
+    ],
+    "solution": "def second_largest(numbers):\n    largest = None\n    second = None\n    for value in numbers:\n        if largest is None or value > largest:\n            second = largest\n            largest = value\n        elif value != largest and (second is None or value > second):\n            second = value\n    return second",
+    "hints": [
+      "Track the largest and the second largest value in a single pass.",
+      "When a new larger value appears, the old largest becomes the new second largest.",
+      "Skip values equal to the current largest so duplicates are not counted twice."
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "slug": "ex-5-2",
+    "chapter": 5,
+    "title": "Recursively flatten nested lists",
+    "prompt": "Write a function flatten(nested) that takes a list whose elements are integers or other lists (nested to any depth) and returns a new one-dimensional list containing all integers in their original order.\n\nnested: a list of integers and lists, arbitrarily nested. The input must not be modified.\nReturn: a new flat list of integers.\n\nExamples:\nflatten([1, 2, 3]) returns [1, 2, 3]\nflatten([[1, 2], [3, [4, [5]]], []]) returns [1, 2, 3, 4, 5]\nflatten([]) returns []\n\nEdge cases: empty inner lists contribute nothing; deep nesting such as [[[[7]]]] returns [7]; the original nested list stays unchanged.",
+    "starter": "def flatten(nested):\n    \"\"\"Return a flat list of all integers inside nested, in order.\"\"\"\n    raise NotImplementedError",
+    "tests": [
+      {
+        "name": "flat input and empty list",
+        "code": "assert flatten([1, 2, 3]) == [1, 2, 3]\nassert flatten([]) == []"
+      },
+      {
+        "name": "mixed nesting",
+        "code": "assert flatten([[1, 2], [3, [4, [5]]], []]) == [1, 2, 3, 4, 5]\nassert flatten([[[7]]]) == [7]\nassert flatten([[], [[1]]]) == [1]"
+      },
+      {
+        "name": "input is not modified",
+        "code": "_original = [[1, 2], [3, [4]]]\n_result = flatten(_original)\nassert _result == [1, 2, 3, 4]\nassert _original == [[1, 2], [3, [4]]]\nassert flatten([[[7]]]) == [7]"
+      }
+    ],
+    "solution": "def flatten(nested):\n    result = []\n    for item in nested:\n        if isinstance(item, list):\n            result.extend(flatten(item))\n        else:\n            result.append(item)\n    return result",
+    "hints": [
+      "Handle one element at a time and recurse when the element is itself a list.",
+      "Collect integers into a list that you pass down or extend with recursive results.",
+      "An empty list simply contributes no elements."
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "slug": "ex-5-3",
+    "chapter": 5,
+    "title": "Invert a dictionary, grouping duplicate values",
+    "prompt": "Write a function invert(mapping) that returns a new dictionary in which the original values become keys and the original keys become values.\n\nmapping: a dict with string keys and hashable values (strings or integers).\nReturn: a new dict. When a value appears exactly once, the inverted value is the single original key (a string). When a value appears more than once, the inverted value is the list of original keys sorted alphabetically.\n\nExamples:\ninvert({\"a\": 1, \"b\": 2}) returns {1: \"a\", 2: \"b\"}\ninvert({\"a\": 1, \"b\": 1, \"c\": 2}) returns {1: [\"a\", \"b\"], 2: \"c\"}\ninvert({}) returns {}\n\nEdge cases: three or more keys sharing a value produce one sorted list; string values are valid keys in the result; the input dict must not be modified.",
+    "starter": "def invert(mapping):\n    \"\"\"Return a new dict mapping each value to its key or sorted list of keys.\"\"\"\n    raise NotImplementedError",
+    "tests": [
+      {
+        "name": "distinct values",
+        "code": "assert invert({\"a\": 1, \"b\": 2}) == {1: \"a\", 2: \"b\"}"
+      },
+      {
+        "name": "grouped duplicate values",
+        "code": "assert invert({\"a\": 1, \"b\": 1, \"c\": 2}) == {1: [\"a\", \"b\"], 2: \"c\"}\nassert invert({\"z\": 1, \"b\": 1, \"a\": 1}) == {1: [\"a\", \"b\", \"z\"]}"
+      },
+      {
+        "name": "empty input and string values",
+        "code": "assert invert({}) == {}\nassert invert({\"x\": \"same\"}) == {\"same\": \"x\"}\n_source = {\"a\": 1}\n_result = invert(_source)\nassert _source == {\"a\": 1} and _result == {1: \"a\"}"
+      }
+    ],
+    "solution": "def invert(mapping):\n    grouped = {}\n    for key, value in mapping.items():\n        grouped.setdefault(value, []).append(key)\n    result = {}\n    for value, keys in grouped.items():\n        if len(keys) == 1:\n            result[value] = keys[0]\n        else:\n            result[value] = sorted(keys)\n    return result",
+    "hints": [
+      "First group all original keys by their value, then decide how each group is stored.",
+      "A group with one key maps to that key; a larger group maps to the sorted keys.",
+      "Build a new dict instead of changing the input."
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "slug": "ex-6-1",
+    "chapter": 6,
+    "title": "Greeting with default arguments",
+    "prompt": "Write a function greet(name, greeting=\"Hello\", punctuation=\"!\") that returns a greeting string.\n\nname: the person's name (a string).\ngreeting: the opening word, default \"Hello\".\npunctuation: the closing text, default \"!\".\nReturn: a string in the form \"<greeting>, <name><punctuation>\".\n\nExamples:\ngreet(\"Ana\") returns \"Hello, Ana!\"\ngreet(\"Ana\", greeting=\"Hi\") returns \"Hi, Ana!\"\ngreet(\"Ana\", punctuation=\".\") returns \"Hello, Ana.\"\n\nEdge cases: both optional arguments can be passed by keyword together, so greet(\"Ana\", greeting=\"Hey\", punctuation=\"?\") returns \"Hey, Ana?\"; positional arguments work too.",
+    "starter": "def greet(name, greeting=\"Hello\", punctuation=\"!\"):\n    \"\"\"Return a greeting in the form '<greeting>, <name><punctuation>'.\"\"\"\n    raise NotImplementedError",
+    "tests": [
+      {
+        "name": "default arguments",
+        "code": "assert greet(\"Ana\") == \"Hello, Ana!\"\nassert greet(\"Bo\") == \"Hello, Bo!\""
+      },
+      {
+        "name": "overriding one default",
+        "code": "assert greet(\"Ana\", greeting=\"Hi\") == \"Hi, Ana!\"\nassert greet(\"Ana\", punctuation=\".\") == \"Hello, Ana.\""
+      },
+      {
+        "name": "overriding both defaults",
+        "code": "assert greet(\"Ana\", greeting=\"Hey\", punctuation=\"?\") == \"Hey, Ana?\"\nassert greet(\"Ana\", \"Salut\", \"...\") == \"Salut, Ana...\""
+      }
+    ],
+    "solution": "def greet(name, greeting=\"Hello\", punctuation=\"!\"):\n    return f\"{greeting}, {name}{punctuation}\"",
+    "hints": [
+      "Use default parameter values for greeting and punctuation.",
+      "Build the result with an f-string that places the comma and spaces exactly.",
+      "Keyword arguments let the caller skip greeting and set only punctuation."
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "slug": "ex-6-2",
+    "chapter": 6,
+    "title": "Variable-argument sum with a starting value",
+    "prompt": "Write a function sum_all(*numbers, start=0) that adds any number of numeric positional arguments and returns the total, beginning from start.\n\nnumbers: zero or more ints or floats.\nstart: a keyword-only argument with default 0.\nReturn: start plus the sum of numbers; with no numbers the result equals start.\n\nExamples:\nsum_all() returns 0\nsum_all(1, 2, 3) returns 6\nsum_all(1.5, 2.5, start=10) returns 14.0\n\nEdge cases: negative values are allowed; start is passed by keyword; sum_all(*range(101)) returns 5050.",
+    "starter": "def sum_all(*numbers, start=0):\n    \"\"\"Return start plus the sum of all positional numeric arguments.\"\"\"\n    raise NotImplementedError",
+    "tests": [
+      {
+        "name": "no arguments and one argument",
+        "code": "assert sum_all() == 0\nassert sum_all(5) == 5"
+      },
+      {
+        "name": "several numbers and a start",
+        "code": "assert sum_all(1, 2, 3, 4) == 10\nassert sum_all(1.5, 2.5, start=10) == 14.0\nassert sum_all(-1, -2, start=10) == 7"
+      },
+      {
+        "name": "many arguments from an unpacked range",
+        "code": "assert sum_all(*range(101)) == 5050"
+      }
+    ],
+    "solution": "def sum_all(*numbers, start=0):\n    return start + sum(numbers)",
+    "hints": [
+      "Collect the positional arguments with *numbers so any count is accepted.",
+      "Make start keyword-only by placing it after *numbers in the signature.",
+      "Add the built-in sum of the collected tuple to start."
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "slug": "ex-6-3",
+    "chapter": 6,
+    "title": "Memoising wrapper function",
+    "prompt": "Write a function memoize(fn) that returns a new function which caches the results of fn.\n\nfn: a function that accepts only positional arguments.\nReturn: a wrapper function. The first time the wrapper is called with a given tuple of positional arguments, it calls fn and stores the result; later calls with the same arguments return the stored result without calling fn again. The wrapper must return exactly what fn returns.\n\nExamples:\ndouble = memoize(lambda n: n * 2) then double(3) returns 6, and a second double(3) call does not call the lambda again.\nfib = memoize(recursive_fib) then fib(15) returns 610 quickly because every intermediate result is cached.\nmemoize(lambda: 42)() returns 42 no matter how often it is called.\n\nEdge cases: the wrapper may be called with no arguments; it must work for recursive functions that call themselves through the decorated name; different argument tuples are cached separately.",
+    "starter": "def memoize(fn):\n    \"\"\"Return a wrapper around fn that caches results by positional arguments.\"\"\"\n    raise NotImplementedError",
+    "tests": [
+      {
+        "name": "caches repeated positional calls",
+        "code": "_calls = []\ndef _double(n):\n    _calls.append(n)\n    return n * 2\n_double = memoize(_double)\nassert _double(3) == 6\nassert _double(3) == 6\nassert _calls == [3]\nassert _double(4) == 8\nassert _calls == [3, 4]"
+      },
+      {
+        "name": "works with a recursive function",
+        "code": "_fib_calls = []\ndef _fib(n):\n    _fib_calls.append(n)\n    if n < 2:\n        return n\n    return _fib(n - 1) + _fib(n - 2)\n_fib = memoize(_fib)\nassert _fib(15) == 610\nassert _fib(15) == 610\nassert len(_fib_calls) == 16"
+      },
+      {
+        "name": "function with no arguments",
+        "code": "_constant_calls = []\ndef _constant():\n    _constant_calls.append(1)\n    return 42\n_constant = memoize(_constant)\nassert _constant() == 42\nassert _constant() == 42\nassert len(_constant_calls) == 1"
+      }
+    ],
+    "solution": "def memoize(fn):\n    cache = {}\n    def wrapper(*args):\n        if args not in cache:\n            cache[args] = fn(*args)\n        return cache[args]\n    return wrapper",
+    "hints": [
+      "Keep a dictionary in the enclosing scope so every call of the wrapper shares it.",
+      "Build the cache key from the positional arguments tuple, which also covers a call with no arguments.",
+      "Only call fn when the key is missing, and always return the cached value."
+    ],
+    "difficulty": "hard"
+  },
+  {
+    "slug": "ex-7-1",
+    "chapter": 7,
+    "title": "Count vowels case-insensitively",
+    "prompt": "Write a function count_vowels(text) that counts how many vowels appear in text.\n\ntext: a string.\nReturn: an integer count of the letters a, e, i, o, u in either upper or lower case. Consonants, digits and punctuation are ignored.\n\nExamples:\ncount_vowels(\"Hello World\") returns 3\ncount_vowels(\"XYZ\") returns 0\ncount_vowels(\"AEIOUaeiou\") returns 10\n\nEdge cases: the empty string returns 0; y is never counted as a vowel; digits and punctuation add nothing.",
+    "starter": "def count_vowels(text):\n    \"\"\"Return the number of vowels (a, e, i, o, u) in text, ignoring case.\"\"\"\n    raise NotImplementedError",
+    "tests": [
+      {
+        "name": "mixed case text",
+        "code": "assert count_vowels(\"Hello World\") == 3\nassert count_vowels(\"AEIOUaeiou\") == 10"
+      },
+      {
+        "name": "no vowels",
+        "code": "assert count_vowels(\"\") == 0\nassert count_vowels(\"XYZ\") == 0\nassert count_vowels(\"123 !?\") == 0"
+      },
+      {
+        "name": "letters with y and mixed content",
+        "code": "assert count_vowels(\"The quick brown fox\") == 5\nassert count_vowels(\"Rhythm\") == 0"
+      }
+    ],
+    "solution": "def count_vowels(text):\n    return sum(1 for char in text.lower() if char in \"aeiou\")",
+    "hints": [
+      "Lowercase the text once so you only need to check five letters.",
+      "A generator expression inside sum counts the matching characters.",
+      "Remember that y is not one of the five vowels."
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "slug": "ex-7-2",
+    "chapter": 7,
+    "title": "Palindrome ignoring case and non-letters",
+    "prompt": "Write a function is_palindrome(text) that decides whether text reads the same forwards and backwards after removing every non-letter character and ignoring case.\n\ntext: a string.\nReturn: True or False. Keep only alphabetic characters (str.isalpha), lowercase them, and compare that sequence with its reverse.\n\nExamples:\nis_palindrome(\"A man, a plan, a canal: Panama\") returns True\nis_palindrome(\"race a car\") returns False\nis_palindrome(\"\") returns True\n\nEdge cases: a string without letters, such as \"12321\", is a palindrome because nothing remains; digits and punctuation are removed first, so \"ab1ba\" returns True and \"ab1ca\" returns False.",
+    "starter": "def is_palindrome(text):\n    \"\"\"Return True when the letters of text form a palindrome, ignoring case.\"\"\"\n    raise NotImplementedError",
+    "tests": [
+      {
+        "name": "classic palindromes",
+        "code": "assert is_palindrome(\"A man, a plan, a canal: Panama\") is True\nassert is_palindrome(\"Was it a car or a cat I saw?\") is True"
+      },
+      {
+        "name": "non-palindrome and empty string",
+        "code": "assert is_palindrome(\"race a car\") is False\nassert is_palindrome(\"\") is True"
+      },
+      {
+        "name": "digits are ignored",
+        "code": "assert is_palindrome(\"12321\") is True\nassert is_palindrome(\"ab1ba\") is True\nassert is_palindrome(\"ab1ca\") is False"
+      }
+    ],
+    "solution": "def is_palindrome(text):\n    letters = [char.lower() for char in text if char.isalpha()]\n    return letters == letters[::-1]",
+    "hints": [
+      "Filter the string down to letters with str.isalpha and lowercase each one.",
+      "Compare the resulting list with its reverse using slicing.",
+      "An empty letters list is equal to its reverse, so it counts as a palindrome."
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "slug": "ex-7-3",
+    "chapter": 7,
+    "title": "Right-align a table of numbers",
+    "prompt": "Write a function format_table(rows) that renders a rectangular table of integers as plain text with right-aligned columns.\n\nrows: a list of equal-length lists of integers; it may be empty.\nReturn: a string with one line per row. Each cell is converted to text and padded on the left with spaces until it is as wide as the widest cell in its column; columns are separated by exactly one space; lines are separated by a single newline character (no trailing newline). An empty rows list returns the empty string.\n\nExamples:\nformat_table([[1, 20], [300, 4]]) returns \"  1 20\\n300  4\"\nformat_table([[7, 88, 9]]) returns \"7 88 9\"\nformat_table([]) returns \"\"\n\nEdge cases: negative numbers include their minus sign when measuring width; a single-cell table such as [[5]] returns \"5\"; lines never end with trailing spaces.",
+    "starter": "def format_table(rows):\n    \"\"\"Return the rows rendered as right-aligned columns separated by one space.\"\"\"\n    raise NotImplementedError",
+    "tests": [
+      {
+        "name": "two rows of different widths",
+        "code": "assert format_table([[1, 20], [300, 4]]) == \"  1 20\\n300  4\""
+      },
+      {
+        "name": "single row, single cell and empty table",
+        "code": "assert format_table([[7, 88, 9]]) == \"7 88 9\"\nassert format_table([[5]]) == \"5\"\nassert format_table([]) == \"\""
+      },
+      {
+        "name": "negative numbers",
+        "code": "assert format_table([[-1, 2], [10, -20]]) == \"-1   2\\n10 -20\""
+      }
+    ],
+    "solution": "def format_table(rows):\n    if not rows:\n        return \"\"\n    widths = [max(len(str(row[index])) for row in rows) for index in range(len(rows[0]))]\n    lines = []\n    for row in rows:\n        lines.append(\" \".join(str(value).rjust(width) for value, width in zip(row, widths)))\n    return \"\\n\".join(lines)",
+    "hints": [
+      "First compute the widest text in each column by indexing the rows.",
+      "Right-align every cell with str.rjust using that column width.",
+      "Join cells with one space and join lines with a newline, and handle the empty table before indexing rows[0]."
+    ],
+    "difficulty": "hard"
+  },
+  {
+    "slug": "ex-8-1",
+    "chapter": 8,
+    "title": "Convert to int with a fallback",
+    "prompt": "Write a function safe_int(value, default=0) that converts value to an integer and returns default when the conversion fails.\n\nvalue: any value.\ndefault: the fallback value, 0 by default.\nReturn: int(value) when the conversion succeeds, otherwise default. Catch only ValueError and TypeError so unrelated errors are not hidden.\n\nExamples:\nsafe_int(\"42\") returns 42\nsafe_int(\"abc\") returns 0\nsafe_int(None, -1) returns -1\n\nEdge cases: safe_int(\" 7 \") returns 7 because int() ignores surrounding whitespace; safe_int(\"3.5\") returns the default because \"3.5\" is not a valid integer literal; safe_int(3.9) returns 3 because int() truncates a float.",
+    "starter": "def safe_int(value, default=0):\n    \"\"\"Return int(value), or default when the conversion fails.\"\"\"\n    raise NotImplementedError",
+    "tests": [
+      {
+        "name": "successful conversions",
+        "code": "assert safe_int(\"42\") == 42\nassert safe_int(\" 7 \") == 7\nassert safe_int(-5) == -5"
+      },
+      {
+        "name": "failed conversions fall back",
+        "code": "assert safe_int(\"abc\") == 0\nassert safe_int(None, -1) == -1\nassert safe_int(\"3.5\") == 0\nassert safe_int(\"abc\", default=9) == 9"
+      },
+      {
+        "name": "float truncation and bad types",
+        "code": "assert safe_int(3.9) == 3\nassert safe_int([], 100) == 100\nassert safe_int(\"0\") == 0"
+      }
+    ],
+    "solution": "def safe_int(value, default=0):\n    try:\n        return int(value)\n    except (ValueError, TypeError):\n        return default",
+    "hints": [
+      "Put int(value) inside a try block and return the converted value.",
+      "Catch ValueError for bad strings and TypeError for values int() cannot accept.",
+      "Return default from the except branch instead of letting the error escape."
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "slug": "ex-8-2",
+    "chapter": 8,
+    "title": "Retry a call once",
+    "prompt": "Write a function retry_once(func, *args, **kwargs) that calls func(*args, **kwargs) and, if that call raises an Exception, calls it exactly once more with the same arguments.\n\nfunc: any callable.\nargs, kwargs: positional and keyword arguments forwarded unchanged to func.\nReturn: the return value of the successful call. If the first call succeeds, func must not be called again. If the second call raises, that second exception propagates unchanged.\n\nExamples:\nretry_once(lambda x: x, 5) returns 5\na function that raises on its first call and returns \"ok\" on its second call makes retry_once return \"ok\"\na function that always raises ValueError(\"nope\") makes retry_once raise ValueError(\"nope\") after exactly two calls\n\nEdge cases: only Exception subclasses trigger a retry; keyword arguments must be forwarded correctly; there is exactly one retry, never a third attempt.",
+    "starter": "def retry_once(func, *args, **kwargs):\n    \"\"\"Call func once and retry exactly once if the first call raises.\"\"\"\n    raise NotImplementedError",
+    "tests": [
+      {
+        "name": "first call succeeds",
+        "code": "_identity_calls = []\ndef _identity(x):\n    _identity_calls.append(x)\n    return x\nassert retry_once(_identity, 5) == 5\nassert _identity_calls == [5]\ndef _add(a, b=0):\n    return a + b\nassert retry_once(_add, 1, b=2) == 3"
+      },
+      {
+        "name": "first call fails then succeeds",
+        "code": "_flaky_calls = []\ndef _flaky():\n    _flaky_calls.append(1)\n    if len(_flaky_calls) < 2:\n        raise RuntimeError(\"boom\")\n    return \"ok\"\nassert retry_once(_flaky) == \"ok\"\nassert len(_flaky_calls) == 2"
+      },
+      {
+        "name": "second failure propagates",
+        "code": "_fail_calls = []\ndef _fails():\n    _fail_calls.append(1)\n    raise ValueError(\"nope\")\ntry:\n    retry_once(_fails)\nexcept ValueError as exc:\n    assert str(exc) == \"nope\"\nelse:\n    assert False\nassert len(_fail_calls) == 2"
+      }
+    ],
+    "solution": "def retry_once(func, *args, **kwargs):\n    try:\n        return func(*args, **kwargs)\n    except Exception:\n        return func(*args, **kwargs)",
+    "hints": [
+      "Wrap only the first call in try/except and return its result immediately when it succeeds.",
+      "In the except branch call func again with the same forwarded arguments.",
+      "Let the second call run outside the try so its exception propagates unchanged."
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "slug": "ex-8-3",
+    "chapter": 8,
+    "title": "Custom exception hierarchy and lookup",
+    "prompt": "Define a small exception hierarchy and a lookup function.\n\nDefine these classes:\nclass AppError(Exception) is the base class for application errors.\nclass NotFoundError(AppError) is raised when a requested key is missing.\nclass InvalidInputError(AppError) is raised when the key has the wrong type.\n\nWrite a function lookup(mapping, key):\nmapping: a dict with string keys.\nkey: the key to look up.\nReturn: mapping[key] when the key is present.\nRaise InvalidInputError(\"key must be a string\") when key is not a str.\nRaise NotFoundError(\"missing key: \" + key) when key is a str but absent from mapping.\n\nExamples:\nlookup({\"a\": 1}, \"a\") returns 1\nlookup({\"a\": 1}, \"b\") raises NotFoundError with the message \"missing key: b\"\nlookup({\"a\": 1}, 3) raises InvalidInputError with the message \"key must be a string\"\n\nEdge cases: both custom errors must be catchable as AppError and as Exception; check the key type before the membership test so a non-string key always raises InvalidInputError; an empty dict with a string key raises NotFoundError.",
+    "starter": "class AppError(Exception):\n    \"\"\"Base class for application errors.\"\"\"\n\n\nclass NotFoundError(AppError):\n    \"\"\"Raised when a requested key is missing.\"\"\"\n\n\nclass InvalidInputError(AppError):\n    \"\"\"Raised when the key has the wrong type.\"\"\"\n\n\ndef lookup(mapping, key):\n    \"\"\"Return mapping[key] or raise the documented custom exception.\"\"\"\n    raise NotImplementedError",
+    "tests": [
+      {
+        "name": "hierarchy and successful lookup",
+        "code": "assert issubclass(AppError, Exception)\nassert issubclass(NotFoundError, AppError)\nassert issubclass(InvalidInputError, AppError)\nassert lookup({\"a\": 1}, \"a\") == 1"
+      },
+      {
+        "name": "missing key",
+        "code": "try:\n    lookup({\"a\": 1}, \"b\")\nexcept NotFoundError as exc:\n    assert str(exc) == \"missing key: b\"\nelse:\n    assert False\ntry:\n    lookup({}, \"z\")\nexcept AppError as exc:\n    assert isinstance(exc, NotFoundError)\n    assert str(exc) == \"missing key: z\"\nelse:\n    assert False"
+      },
+      {
+        "name": "invalid key type",
+        "code": "try:\n    lookup({\"a\": 1}, 3)\nexcept InvalidInputError as exc:\n    assert str(exc) == \"key must be a string\"\nelse:\n    assert False\ntry:\n    lookup({\"1\": \"x\"}, 1)\nexcept AppError as exc:\n    assert isinstance(exc, InvalidInputError)\n    assert str(exc) == \"key must be a string\"\nelse:\n    assert False"
+      }
+    ],
+    "solution": "class AppError(Exception):\n    \"\"\"Base class for application errors.\"\"\"\n\n\nclass NotFoundError(AppError):\n    \"\"\"Raised when a requested key is missing.\"\"\"\n\n\nclass InvalidInputError(AppError):\n    \"\"\"Raised when the key has the wrong type.\"\"\"\n\n\ndef lookup(mapping, key):\n    if not isinstance(key, str):\n        raise InvalidInputError(\"key must be a string\")\n    if key not in mapping:\n        raise NotFoundError(\"missing key: \" + key)\n    return mapping[key]",
+    "hints": [
+      "Subclass both specific errors from AppError so one except clause can catch both.",
+      "Test isinstance(key, str) before checking membership, so wrong types never reach the dict lookup.",
+      "Raise the custom errors with exactly the documented message strings."
+    ],
+    "difficulty": "hard"
+  },
+  {
+    "slug": "ex-9-1",
+    "chapter": 9,
+    "title": "Count lines in a text file",
+    "prompt": "Write a function count_lines(path) that returns the number of lines in a UTF-8 text file.\n\npath: a file system path, given as a str or a pathlib.Path.\nReturn: the number of lines. A final line without a trailing newline still counts as one line, and an empty file has 0 lines.\n\nExamples:\na file containing \"alpha\", \"beta\", \"gamma\" on three lines without a trailing newline gives count_lines(path) == 3\na file containing \"a\\nb\\n\" gives 2\nan empty file gives 0\n\nEdge cases: a file containing only a single newline has one empty line and gives 1; open the file with a with statement and pass encoding=\"utf-8\" so non-ASCII text works.",
+    "starter": "def count_lines(path):\n    \"\"\"Return the number of lines in the UTF-8 text file at path.\"\"\"\n    raise NotImplementedError",
+    "tests": [
+      {
+        "name": "three lines without a final newline",
+        "code": "import tempfile, pathlib, shutil\n_tmp = tempfile.mkdtemp()\ntry:\n    _p = pathlib.Path(_tmp) / \"sample.txt\"\n    _p.write_text(\"alpha\\nbeta\\ngamma\", encoding=\"utf-8\")\n    _as_path = count_lines(_p)\n    _as_str = count_lines(str(_p))\nfinally:\n    shutil.rmtree(_tmp)\nassert _as_path == 3\nassert _as_str == 3"
+      },
+      {
+        "name": "trailing newline and empty file",
+        "code": "import tempfile, pathlib, shutil\n_tmp = tempfile.mkdtemp()\ntry:\n    _p = pathlib.Path(_tmp) / \"trailing.txt\"\n    _p.write_text(\"a\\nb\\n\", encoding=\"utf-8\")\n    _trailing = count_lines(_p)\n    _q = pathlib.Path(_tmp) / \"empty.txt\"\n    _q.write_text(\"\", encoding=\"utf-8\")\n    _empty = count_lines(_q)\nfinally:\n    shutil.rmtree(_tmp)\nassert _trailing == 2\nassert _empty == 0"
+      },
+      {
+        "name": "single blank line and non-ASCII text",
+        "code": "import tempfile, pathlib, shutil\n_tmp = tempfile.mkdtemp()\ntry:\n    _p = pathlib.Path(_tmp) / \"blank.txt\"\n    _p.write_text(\"\\n\", encoding=\"utf-8\")\n    _one = count_lines(_p)\n    _q = pathlib.Path(_tmp) / \"unicode.txt\"\n    _q.write_text(\"h\\u00e9llo\\nw\\u00f6rld\", encoding=\"utf-8\")\n    _two = count_lines(_q)\nfinally:\n    shutil.rmtree(_tmp)\nassert _one == 1\nassert _two == 2"
+      }
+    ],
+    "solution": "def count_lines(path):\n    with open(path, \"r\", encoding=\"utf-8\") as handle:\n        return sum(1 for _ in handle)",
+    "hints": [
+      "Open the path with a with statement and encoding='utf-8'.",
+      "Iterating over an open text file yields one string per line, including the last line without a newline.",
+      "Count the yielded lines with sum(1 for _ in handle)."
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "slug": "ex-9-2",
+    "chapter": 9,
+    "title": "Write and read back a list of lines",
+    "prompt": "Write two functions that store a list of strings in a text file and read it back.\n\nwrite_lines(path, lines):\npath: a file system path (str or pathlib.Path), overwritten if it exists.\nlines: a list of strings.\nWrite each string followed by a single newline to a UTF-8 text file, in order. An empty list creates an empty file. Return None.\n\nread_lines(path):\npath: a file system path (str or pathlib.Path).\nReturn the file's lines as strings with the trailing newline removed. A final line without a newline is included as-is. An empty file returns [].\n\nExamples:\nwrite_lines(path, [\"alpha\", \"beta\"]) then path.read_text(encoding=\"utf-8\") returns \"alpha\\nbeta\\n\" and read_lines(path) returns [\"alpha\", \"beta\"]\nwrite_lines(path, []) then read_lines(path) returns []\n\nEdge cases: blank lines are preserved, so [\"a\", \"\", \"b\"] round-trips as [\"a\", \"\", \"b\"]; non-ASCII text must survive; write_lines overwrites previous content; use a with statement and encoding=\"utf-8\".",
+    "starter": "def write_lines(path, lines):\n    \"\"\"Write each string in lines followed by a newline, overwriting path.\"\"\"\n    raise NotImplementedError\n\n\ndef read_lines(path):\n    \"\"\"Return the lines of path with trailing newlines removed.\"\"\"\n    raise NotImplementedError",
+    "tests": [
+      {
+        "name": "write then read back",
+        "code": "import tempfile, pathlib, shutil\n_tmp = tempfile.mkdtemp()\ntry:\n    _p = pathlib.Path(_tmp) / \"lines.txt\"\n    write_lines(_p, [\"alpha\", \"beta\", \"gamma\"])\n    _content = _p.read_text(encoding=\"utf-8\")\n    _back = read_lines(_p)\nfinally:\n    shutil.rmtree(_tmp)\nassert _content == \"alpha\\nbeta\\ngamma\\n\"\nassert _back == [\"alpha\", \"beta\", \"gamma\"]"
+      },
+      {
+        "name": "empty list and blank lines",
+        "code": "import tempfile, pathlib, shutil\n_tmp = tempfile.mkdtemp()\ntry:\n    _p = pathlib.Path(_tmp) / \"lines.txt\"\n    write_lines(_p, [])\n    _empty_content = _p.read_text(encoding=\"utf-8\")\n    _empty_back = read_lines(_p)\n    write_lines(_p, [\"a\", \"\", \"b\"])\n    _blank_back = read_lines(_p)\n    _blank_content = _p.read_text(encoding=\"utf-8\")\nfinally:\n    shutil.rmtree(_tmp)\nassert _empty_content == \"\"\nassert _empty_back == []\nassert _blank_back == [\"a\", \"\", \"b\"]\nassert _blank_content == \"a\\n\\nb\\n\""
+      },
+      {
+        "name": "overwrite, unicode and missing final newline",
+        "code": "import tempfile, pathlib, shutil\n_tmp = tempfile.mkdtemp()\ntry:\n    _p = pathlib.Path(_tmp) / \"lines.txt\"\n    _p.write_text(\"old\\ncontent\\n\", encoding=\"utf-8\")\n    write_lines(_p, [\"h\\u00e9llo\", \"w\\u00f6rld\"])\n    _unicode = read_lines(_p)\n    _p.write_text(\"no-newline\", encoding=\"utf-8\")\n    _last = read_lines(str(_p))\nfinally:\n    shutil.rmtree(_tmp)\nassert _unicode == [\"h\\u00e9llo\", \"w\\u00f6rld\"]\nassert _last == [\"no-newline\"]"
+      }
+    ],
+    "solution": "def write_lines(path, lines):\n    with open(path, \"w\", encoding=\"utf-8\") as handle:\n        for line in lines:\n            handle.write(line + \"\\n\")\n\n\ndef read_lines(path):\n    with open(path, \"r\", encoding=\"utf-8\") as handle:\n        return [line[:-1] if line.endswith(\"\\n\") else line for line in handle]",
+    "hints": [
+      "Open the file once per function with a with statement and encoding='utf-8'.",
+      "In write_lines, append a newline to every string so an empty file has no stray newline.",
+      "In read_lines, drop one trailing newline from each line and keep the last line when it has none."
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "slug": "ex-9-3",
+    "chapter": 9,
+    "title": "Sum a CSV column by header name",
+    "prompt": "Write a function sum_csv_column(path, column) that reads a CSV file with a header row and returns the sum of the numbers in one named column.\n\npath: a file system path (str or pathlib.Path) to a UTF-8 CSV file.\ncolumn: the header name of the column to sum (a string).\nReturn: the total as a float. Empty cells count as 0. Values may be integers or decimals such as 1.5.\nRaise KeyError when the header row does not contain column.\n\nExamples:\nA file whose content is:\nname,amount\nalpha,1.5\nbeta,2\ngamma,3.5\ngives sum_csv_column(path, \"amount\") == 7.0\nA file with data rows where \"alpha, inc\" is a quoted name with amount 1.5, beta has an empty amount, and gamma has 2.5 gives sum_csv_column(path, \"amount\") == 4.0\nA file with header name,amount makes sum_csv_column(path, \"missing\") raise KeyError\n\nEdge cases: use the csv module (csv.DictReader) so quoted fields containing commas parse correctly; a file with only a header row returns 0.0; open the file with encoding=\"utf-8\" and newline=\"\".",
+    "starter": "def sum_csv_column(path, column):\n    \"\"\"Return the sum of the numeric cells in the named CSV column.\"\"\"\n    raise NotImplementedError",
+    "tests": [
+      {
+        "name": "basic numeric column",
+        "code": "import tempfile, pathlib, shutil\n_tmp = tempfile.mkdtemp()\ntry:\n    _p = pathlib.Path(_tmp) / \"data.csv\"\n    _p.write_text(\"name,amount\\nalpha,1.5\\nbeta,2\\ngamma,3.5\\n\", encoding=\"utf-8\")\n    _total = sum_csv_column(_p, \"amount\")\nfinally:\n    shutil.rmtree(_tmp)\nassert _total == 7.0"
+      },
+      {
+        "name": "quoted comma and empty cell",
+        "code": "import tempfile, pathlib, shutil\n_tmp = tempfile.mkdtemp()\ntry:\n    _p = pathlib.Path(_tmp) / \"data.csv\"\n    _p.write_text('name,amount\\n\"alpha, inc\",1.5\\nbeta,\\ngamma,2.5\\n', encoding=\"utf-8\")\n    _total = sum_csv_column(str(_p), \"amount\")\nfinally:\n    shutil.rmtree(_tmp)\nassert _total == 4.0"
+      },
+      {
+        "name": "header only and missing column",
+        "code": "import tempfile, pathlib, shutil\n_tmp = tempfile.mkdtemp()\ntry:\n    _empty_p = pathlib.Path(_tmp) / \"empty.csv\"\n    _empty_p.write_text(\"name,amount\\n\", encoding=\"utf-8\")\n    _zero = sum_csv_column(_empty_p, \"amount\")\n    _data_p = pathlib.Path(_tmp) / \"data.csv\"\n    _data_p.write_text(\"name,amount\\nalpha,1\\n\", encoding=\"utf-8\")\n    try:\n        sum_csv_column(_data_p, \"missing\")\n    except KeyError:\n        _raised = True\n    else:\n        _raised = False\nfinally:\n    shutil.rmtree(_tmp)\nassert _zero == 0.0\nassert _raised is True"
+      }
+    ],
+    "solution": "import csv\n\n\ndef sum_csv_column(path, column):\n    total = 0.0\n    with open(path, \"r\", encoding=\"utf-8\", newline=\"\") as handle:\n        reader = csv.DictReader(handle)\n        if reader.fieldnames is None or column not in reader.fieldnames:\n            raise KeyError(column)\n        for row in reader:\n            raw = row.get(column)\n            if raw is None or raw.strip() == \"\":\n                continue\n            total += float(raw)\n    return total",
+    "hints": [
+      "Open the file with newline='' and pass it to csv.DictReader so the header names become keys.",
+      "Check reader.fieldnames before looping and raise KeyError when the column is absent.",
+      "Skip empty cells and add float(cell) for the rest, returning 0.0 for a header-only file."
+    ],
+    "difficulty": "hard"
+  }
+]

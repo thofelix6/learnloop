@@ -1,0 +1,432 @@
+[
+ {
+  "slug": "llm-lab1-1",
+  "chapter": 101,
+  "title": "Lab 1 · pair counts",
+  "difficulty": "easy",
+  "prompt": "Count every adjacent pair in a list of token ids. Return a dict mapping (left_id, right_id) to how many times that pair occurs, e.g. [1, 2, 1] gives {(1, 2): 1, (2, 1): 1}. An empty list or a single id has no pairs.",
+  "starter": "def pair_counts(ids):\n    \"\"\"Return {(a, b): count} for every adjacent pair.\"\"\"\n    # TODO: walk the list and count (ids[i], ids[i+1])\n    pass\n",
+  "hints": [
+   "zip(ids, ids[1:]) gives the adjacent pairs.",
+   "Use a plain dict and .get(pair, 0) + 1."
+  ],
+  "tests": [
+   {
+    "name": "two pairs in a four-token list",
+    "code": "assert pair_counts([1, 2, 1, 2]) == {(1, 2): 2, (2, 1): 1}"
+   },
+   {
+    "name": "empty and single lists have no pairs",
+    "code": "assert pair_counts([]) == {}\nassert pair_counts([5]) == {}"
+   },
+   {
+    "name": "repeats are counted",
+    "code": "assert pair_counts([1, 1, 1]) == {(1, 1): 2}"
+   }
+  ],
+  "solution": "def pair_counts(ids):\n    counts = {}\n    for a, b in zip(ids, ids[1:]):\n        counts[(a, b)] = counts.get((a, b), 0) + 1\n    return counts\n"
+ },
+ {
+  "slug": "llm-lab1-2",
+  "chapter": 101,
+  "title": "Lab 1 · most common pair",
+  "difficulty": "easy",
+  "prompt": "Return the adjacent pair that occurs most often. Ties are broken by the lexicographically smallest pair, so (1, 2) beats (2, 1). Return None when the list has fewer than two ids.",
+  "starter": "def most_common_pair(ids):\n    \"\"\"Return the pair with the highest count, ties by smallest pair.\"\"\"\n    # TODO: count pairs, then max by (count, -a, -b)\n    pass\n",
+  "hints": [
+   "Reuse pair_counts(ids).",
+   "max(counts, key=lambda p: (counts[p], -p[0], -p[1])) picks the smallest pair on a tie."
+  ],
+  "tests": [
+   {
+    "name": "clear winner",
+    "code": "assert most_common_pair([1, 2, 1, 2, 3, 2]) == (1, 2)"
+   },
+   {
+    "name": "tie goes to the smallest pair",
+    "code": "assert most_common_pair([1, 2, 2, 1]) == (1, 2)"
+   },
+   {
+    "name": "too short is None",
+    "code": "assert most_common_pair([]) is None\nassert most_common_pair([7]) is None"
+   }
+  ],
+  "solution": "def most_common_pair(ids):\n    counts = {}\n    for a, b in zip(ids, ids[1:]):\n        counts[(a, b)] = counts.get((a, b), 0) + 1\n    if not counts:\n        return None\n    return max(counts, key=lambda p: (counts[p], -p[0], -p[1]))\n"
+ },
+ {
+  "slug": "llm-lab1-3",
+  "chapter": 101,
+  "title": "Lab 1 · merge a pair",
+  "difficulty": "medium",
+  "prompt": "Replace every non-overlapping occurrence of a pair with a new id, scanning left to right: [1, 2, 1, 2] with pair (1, 2) and new id 9 becomes [9, 9]. A run of three equal ids merges once at the start: [1, 1, 1] becomes [9, 1].",
+  "starter": "def merge_pair(ids, pair, new_id):\n    \"\"\"Replace non-overlapping occurrences of pair with new_id.\"\"\"\n    # TODO: scan with an index, look at ids[i:i+2]\n    pass\n",
+  "hints": [
+   "Advance i by 2 on a match, by 1 otherwise.",
+   "Build a new list rather than editing in place."
+  ],
+  "tests": [
+   {
+    "name": "two merges",
+    "code": "assert merge_pair([1, 2, 1, 2], (1, 2), 9) == [9, 9]"
+   },
+   {
+    "name": "a run of three merges once",
+    "code": "assert merge_pair([1, 1, 1], (1, 1), 9) == [9, 1]"
+   },
+   {
+    "name": "no match leaves the list alone",
+    "code": "assert merge_pair([3, 4], (1, 2), 9) == [3, 4]\nassert merge_pair([], (1, 2), 9) == []"
+   }
+  ],
+  "solution": "def merge_pair(ids, pair, new_id):\n    out, i = [], 0\n    while i < len(ids):\n        if i + 1 < len(ids) and (ids[i], ids[i + 1]) == tuple(pair):\n            out.append(new_id)\n            i += 2\n        else:\n            out.append(ids[i])\n            i += 1\n    return out\n"
+ },
+ {
+  "slug": "llm-lab2-1",
+  "chapter": 102,
+  "title": "Lab 2 · stable softmax",
+  "difficulty": "easy",
+  "prompt": "Turn a sequence of logits into probabilities. Subtract the maximum logit before exponentiating so [1000, 0] does not overflow, and return floats that sum to 1.",
+  "starter": "def softmax(logits):\n    \"\"\"Return a probability list, numerically stable.\"\"\"\n    # TODO: shift by the max, exp, divide by the sum\n    pass\n",
+  "hints": [
+   "Use math.exp; subtracting the max changes nothing mathematically.",
+   "A list of floats is fine; the tests add up your values."
+  ],
+  "tests": [
+   {
+    "name": "uniform logits give uniform probabilities",
+    "code": "p = [float(x) for x in softmax([0.0, 0.0, 0.0])]\nassert all(abs(x - 1/3) < 1e-9 for x in p)"
+   },
+   {
+    "name": "huge logits do not overflow",
+    "code": "p = [float(x) for x in softmax([1000.0, 0.0])]\nassert abs(p[0] - 1.0) < 1e-9"
+   },
+   {
+    "name": "shift invariant and sums to one",
+    "code": "a = [float(x) for x in softmax([1.0, 2.0, 3.0])]\nb = [float(x) for x in softmax([0.0, 1.0, 2.0])]\nassert all(abs(x - y) < 1e-9 for x, y in zip(a, b))\nassert abs(sum(a) - 1.0) < 1e-9"
+   }
+  ],
+  "solution": "import math\n\ndef softmax(logits):\n    z = [float(x) for x in logits]\n    m = max(z)\n    e = [math.exp(x - m) for x in z]\n    s = sum(e)\n    return [x / s for x in e]\n"
+ },
+ {
+  "slug": "llm-lab2-2",
+  "chapter": 102,
+  "title": "Lab 2 · cross-entropy loss",
+  "difficulty": "easy",
+  "prompt": "Return the loss -log(p[target]) for a sequence of logits. For 65 equally likely tokens the loss should be log(65) ≈ 4.174, and a confident correct answer should be close to zero.",
+  "starter": "import math\n\ndef cross_entropy(logits, target):\n    \"\"\"Return -log(softmax(logits)[target]) as a float.\"\"\"\n    # TODO\n    pass\n",
+  "hints": [
+   "You can compute it as logsumexp(logits) - logits[target].",
+   "Return a plain float."
+  ],
+  "tests": [
+   {
+    "name": "uniform 65-way loss is log(65)",
+    "code": "import math\nassert abs(cross_entropy([0.0] * 65, 0) - math.log(65)) < 1e-9"
+   },
+   {
+    "name": "confident correct answer is near zero",
+    "code": "assert cross_entropy([10.0, 0.0, 0.0], 0) < 1e-3"
+   },
+   {
+    "name": "wrong answer costs more",
+    "code": "assert cross_entropy([5.0, 0.0, 0.0], 1) > 4.9"
+   }
+  ],
+  "solution": "import math\n\ndef cross_entropy(logits, target):\n    z = [float(x) for x in logits]\n    m = max(z)\n    lse = m + math.log(sum(math.exp(x - m) for x in z))\n    return float(lse - z[target])\n"
+ },
+ {
+  "slug": "llm-lab2-3",
+  "chapter": 102,
+  "title": "Lab 2 · one gradient step",
+  "difficulty": "medium",
+  "prompt": "Do one SGD step on a bigram model. W is a vocab×vocab table (a list of rows), x the input id, y the target. Probabilities are softmax(W[x]); the gradient is p - onehot(y); update W[x] by subtracting lr * gradient, and return the whole table.",
+  "starter": "import math\n\ndef bigram_step(W, x, y, lr):\n    \"\"\"One SGD update on row x of W and return W.\"\"\"\n    # TODO: p = softmax(W[x]); row[y] -= lr*(p[y]-1); others -= lr*p\n    pass\n",
+  "hints": [
+   "Copy the table first; do not mutate the caller's W.",
+   "The correct class gains lr*(1 - p[y]); every other class loses lr*p."
+  ],
+  "tests": [
+   {
+    "name": "shape is preserved",
+    "code": "W = bigram_step([[0.0] * 4 for _ in range(4)], 0, 0, 0.1)\nassert len(W) == 4 and all(len(r) == 4 for r in W)"
+   },
+   {
+    "name": "row moves toward the target",
+    "code": "W = bigram_step([[0.0] * 4 for _ in range(4)], 0, 0, 0.1)\nassert abs(W[0][0] - 0.1 * (1 - 0.25)) < 1e-9\nassert abs(W[0][1] - (-0.1 * 0.25)) < 1e-9"
+   },
+   {
+    "name": "other rows are untouched",
+    "code": "W = bigram_step([[0.0] * 4 for _ in range(4)], 2, 3, 0.5)\nassert all(x == 0 for row in W[:2] for x in row)"
+   }
+  ],
+  "solution": "import math\n\ndef _softmax(z):\n    m = max(z)\n    e = [math.exp(x - m) for x in z]\n    s = sum(e)\n    return [x / s for x in e]\n\ndef bigram_step(W, x, y, lr):\n    W = [list(row) for row in W]\n    p = _softmax(W[x])\n    p[y] -= 1.0\n    W[x] = [a - lr * b for a, b in zip(W[x], p)]\n    return W\n"
+ },
+ {
+  "slug": "llm-lab3-1",
+  "chapter": 103,
+  "title": "Lab 3 · attention weights",
+  "difficulty": "medium",
+  "prompt": "Score one query vector against a list of T key vectors: weights = softmax(K @ q / sqrt(d)). Return T weights that sum to 1.",
+  "starter": "import math\n\ndef attention_weights(q, K):\n    \"\"\"Return softmax(K @ q / sqrt(d)) for one query.\"\"\"\n    # TODO\n    pass\n",
+  "hints": [
+   "d is len(q); divide the scores by sqrt(d) before the softmax.",
+   "Identical keys give uniform weights."
+  ],
+  "tests": [
+   {
+    "name": "shape and sum",
+    "code": "w = [float(x) for x in attention_weights([1.0, 0.0], [[1.0, 0.0], [0.0, 1.0]])]\nassert len(w) == 2 and abs(sum(w) - 1) < 1e-9"
+   },
+   {
+    "name": "identical keys are uniform",
+    "code": "w = [float(x) for x in attention_weights([2.0, -1.0], [[1.0, 1.0]] * 4)]\nassert all(abs(x - 0.25) < 1e-9 for x in w)"
+   },
+   {
+    "name": "aligned key wins",
+    "code": "w = [float(x) for x in attention_weights([1.0, 0.0], [[20.0, 0.0], [0.0, 20.0]])]\nassert w[0] > 0.999"
+   }
+  ],
+  "solution": "import math\n\ndef attention_weights(q, K):\n    q = [float(x) for x in q]\n    d = len(q)\n    scores = [sum(k * x for k, x in zip(row, q)) / math.sqrt(d) for row in K]\n    m = max(scores)\n    e = [math.exp(s - m) for s in scores]\n    s = sum(e)\n    return [x / s for x in e]\n"
+ },
+ {
+  "slug": "llm-lab3-2",
+  "chapter": 103,
+  "title": "Lab 3 · causal mask",
+  "difficulty": "easy",
+  "prompt": "Given a T×T score matrix (list of rows), return a copy where every entry above the diagonal (j > i) is -inf, so position i can only see itself and earlier tokens.",
+  "starter": "import math\n\ndef causal_mask(scores):\n    \"\"\"Set the strict upper triangle to -inf and return the copy.\"\"\"\n    # TODO\n    pass\n",
+  "hints": [
+   "Build a new list of rows; on a copy, set row[j] = -inf when j > i.",
+   "Do not modify the input matrix."
+  ],
+  "tests": [
+   {
+    "name": "strict upper triangle is -inf",
+    "code": "import math\nm = causal_mask([[0.0] * 3 for _ in range(3)])\nassert all(math.isinf(m[0][1]) and m[0][1] < 0 for j in [1])\nassert all(math.isinf(m[1][2]) and m[1][2] < 0 for j in [2])"
+   },
+   {
+    "name": "diagonal and past survive",
+    "code": "s = [[0.0, 1.0, 2.0], [3.0, 4.0, 5.0], [6.0, 7.0, 8.0]]\nm = causal_mask(s)\nassert m[2][0] == 6 and m[2][2] == 8 and m[1][1] == 4"
+   },
+   {
+    "name": "input is not mutated",
+    "code": "s = [[0.0, 0.0], [0.0, 0.0]]\ncausal_mask(s)\nassert s[0][1] == 0"
+   }
+  ],
+  "solution": "import math\n\ndef causal_mask(scores):\n    out = []\n    for i, row in enumerate(scores):\n        new = [float(x) for x in row]\n        for j in range(len(new)):\n            if j > i:\n                new[j] = -math.inf\n        out.append(new)\n    return out\n"
+ },
+ {
+  "slug": "llm-lab3-3",
+  "chapter": 103,
+  "title": "Lab 3 · masked attention output",
+  "difficulty": "medium",
+  "prompt": "Compute attention for a whole sequence: weights = softmax(Q @ K.T / sqrt(d) + mask), output = weights @ V. With a causal mask the first output row must equal V[0].",
+  "starter": "import math\n\ndef masked_attention(Q, K, V):\n    \"\"\"Return (T, d) attention output with a causal mask.\"\"\"\n    # TODO: scores, mask, per-row softmax, then multiply by V\n    pass\n",
+  "hints": [
+   "softmax must be applied per row, not over the whole matrix.",
+   "Reuse causal_mask on the scores."
+  ],
+  "tests": [
+   {
+    "name": "shapes",
+    "code": "Q = K = V = [[1.0 if i == j else 0.0 for j in range(3)] for i in range(3)]\nout = masked_attention(Q, K, V)\nassert len(out) == 3 and all(len(r) == 3 for r in out)"
+   },
+   {
+    "name": "first row is V[0]",
+    "code": "Q = K = [[1.0 if i == j else 0.0 for j in range(3)] for i in range(3)]\nV = [[0.0, 1.0, 2.0], [3.0, 4.0, 5.0], [6.0, 7.0, 8.0]]\nout = masked_attention(Q, K, V)\nassert all(abs(a - b) < 1e-9 for a, b in zip(out[0], V[0]))"
+   },
+   {
+    "name": "each row sums to one",
+    "code": "Q = K = V = [[1.0 if i == j else 0.0 for j in range(3)] for i in range(3)]\nout = masked_attention(Q, K, V)\nassert all(abs(sum(r) - 1.0) < 1e-9 for r in out)"
+   }
+  ],
+  "solution": "import math\n\ndef masked_attention(Q, K, V):\n    T = len(Q)\n    d = len(Q[0])\n    out = []\n    for i in range(T):\n        scores = [sum(Q[i][k] * K[j][k] for k in range(d)) / math.sqrt(d) for j in range(T)]\n        scores = [s if j <= i else -math.inf for j, s in enumerate(scores)]\n        m = max(scores)\n        e = [math.exp(s - m) for s in scores]\n        z = sum(e)\n        w = [x / z for x in e]\n        out.append([sum(w[j] * V[j][k] for j in range(T)) for k in range(len(V[0]))])\n    return out\n"
+ },
+ {
+  "slug": "llm-lab4-1",
+  "chapter": 104,
+  "title": "Lab 4 · layer norm",
+  "difficulty": "easy",
+  "prompt": "Normalise every row of x to mean 0 and variance 1 (population variance), using eps=1e-5 inside the square root. A constant row becomes zeros.",
+  "starter": "import math\n\ndef layer_norm(x, eps=1e-5):\n    \"\"\"Row-wise normalisation: (x - mean) / sqrt(var + eps).\"\"\"\n    # TODO\n    pass\n",
+  "hints": [
+   "mean = sum(row)/len(row); var = sum((v-mean)**2)/len(row).",
+   "Return a new list of rows."
+  ],
+  "tests": [
+   {
+    "name": "each row has mean zero and unit variance",
+    "code": "import math\nx = [[1.0, 2.0, 3.0], [10.0, 10.0, 10.0]]\ny = layer_norm(x)\nmean = sum(y[0]) / 3\nvar = sum((v - mean) ** 2 for v in y[0]) / 3\nassert abs(mean) < 1e-6 and abs(var - 1) < 1e-4\nassert all(abs(v) < 1e-9 for v in y[1])"
+   },
+   {
+    "name": "shape preserved",
+    "code": "y = layer_norm([[0.0] * 5, [0.0] * 5])\nassert len(y) == 2 and all(len(r) == 5 for r in y)"
+   },
+   {
+    "name": "scale invariant",
+    "code": "a = layer_norm([[1.0, 2.0, 4.0]])\nb = layer_norm([[10.0, 20.0, 40.0]])\nassert all(abs(x - y) < 1e-5 for x, y in zip(a[0], b[0]))"
+   }
+  ],
+  "solution": "import math\n\ndef layer_norm(x, eps=1e-5):\n    out = []\n    for row in x:\n        row = [float(v) for v in row]\n        mean = sum(row) / len(row)\n        var = sum((v - mean) ** 2 for v in row) / len(row)\n        out.append([(v - mean) / math.sqrt(var + eps) for v in row])\n    return out\n"
+ },
+ {
+  "slug": "llm-lab4-2",
+  "chapter": 104,
+  "title": "Lab 4 · GELU",
+  "difficulty": "easy",
+  "prompt": "Implement the tanh approximation of GELU: 0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3))). It must work element-wise on a float or a list of floats.",
+  "starter": "import math\n\ndef gelu(x):\n    \"\"\"Return the tanh-approximated GELU of x (float or list).\"\"\"\n    # TODO\n    pass\n",
+  "hints": [
+   "math.sqrt(2 / math.pi) is the constant.",
+   "If x is a list, map the formula over its values."
+  ],
+  "tests": [
+   {
+    "name": "zero maps to zero",
+    "code": "assert abs(gelu(0.0)) < 1e-12"
+   },
+   {
+    "name": "large positive is unchanged, large negative vanishes",
+    "code": "assert abs(gelu(10.0) - 10.0) < 1e-3\nassert abs(gelu(-10.0)) < 1e-3"
+   },
+   {
+    "name": "matches the formula element-wise",
+    "code": "import math\nx = [-1.0, 0.0, 1.0, 2.0]\nref = [0.5 * v * (1 + math.tanh(math.sqrt(2 / math.pi) * (v + 0.044715 * v ** 3))) for v in x]\ngot = [float(v) for v in gelu(x)]\nassert all(abs(a - b) < 1e-9 for a, b in zip(got, ref))"
+   }
+  ],
+  "solution": "import math\n\ndef gelu(x):\n    c = math.sqrt(2.0 / math.pi)\n    def one(v):\n        v = float(v)\n        return 0.5 * v * (1.0 + math.tanh(c * (v + 0.044715 * v ** 3)))\n    if isinstance(x, (list, tuple)):\n        return [one(v) for v in x]\n    return one(x)\n"
+ },
+ {
+  "slug": "llm-lab5-1",
+  "chapter": 105,
+  "title": "Lab 5 · training batches",
+  "difficulty": "medium",
+  "prompt": "Cut a random batch out of a token list. For each sequence pick a start i in [0, len(data) - block_size - 1] with rng.randrange(...); x is data[i:i+block_size], y is the same window shifted by one. Return two batch_size × block_size lists.",
+  "starter": "def get_batch(data, block_size, batch_size, rng):\n    \"\"\"Return (x, y); y is shifted one token right. rng has .randrange(n).\"\"\"\n    # TODO: sample starts, slice windows\n    pass\n",
+  "hints": [
+   "rng.randrange(len(data) - block_size - 1) gives a start.",
+   "y is one longer than x, then drop its last value."
+  ],
+  "tests": [
+   {
+    "name": "shapes",
+    "code": "import random\nd = list(range(50))\nx, y = get_batch(d, 8, 4, random.Random(0))\nassert len(x) == 4 and all(len(r) == 8 for r in x)\nassert len(y) == 4 and all(len(r) == 8 for r in y)"
+   },
+   {
+    "name": "y is x shifted by one",
+    "code": "import random\nd = list(range(50))\nx, y = get_batch(d, 8, 4, random.Random(1))\nassert all(y[i][:-1] == x[i][1:] for i in range(4))"
+   },
+   {
+    "name": "sequences stay inside the data",
+    "code": "import random\nd = list(range(50))\nx, y = get_batch(d, 8, 4, random.Random(2))\nassert min(min(r) for r in x) >= 0 and max(max(r) for r in y) <= 49"
+   }
+  ],
+  "solution": "def get_batch(data, block_size, batch_size, rng):\n    xs, ys = [], []\n    for _ in range(batch_size):\n        i = rng.randrange(len(data) - block_size - 1)\n        xs.append(list(data[i:i + block_size]))\n        ys.append(list(data[i + 1:i + 1 + block_size]))\n    return xs, ys\n"
+ },
+ {
+  "slug": "llm-lab6-1",
+  "chapter": 106,
+  "title": "Lab 6 · greedy decoding",
+  "difficulty": "easy",
+  "prompt": "Return the index of the largest logit. Ties go to the smallest index.",
+  "starter": "def greedy(logits):\n    \"\"\"Return the most likely next token id.\"\"\"\n    # TODO\n    pass\n",
+  "hints": [
+   "max(range(len(logits)), key=lambda i: logits[i])"
+  ],
+  "tests": [
+   {
+    "name": "picks the maximum",
+    "code": "assert greedy([0.1, 0.5, 0.2]) == 1"
+   },
+   {
+    "name": "ties pick the first index",
+    "code": "assert greedy([1.0, 1.0, 0.0]) == 0"
+   },
+   {
+    "name": "negative logits are fine",
+    "code": "assert greedy([-5.0, -2.0, -3.0]) == 1"
+   }
+  ],
+  "solution": "def greedy(logits):\n    return max(range(len(logits)), key=lambda i: logits[i])\n"
+ },
+ {
+  "slug": "llm-lab6-2",
+  "chapter": 106,
+  "title": "Lab 6 · top-k filter",
+  "difficulty": "medium",
+  "prompt": "Keep only the k largest logits and set the rest to -inf. The result must have the same length as the input; k equal to the length keeps everything.",
+  "starter": "import math\n\ndef top_k(logits, k):\n    \"\"\"Return logits with all but the k largest entries set to -inf.\"\"\"\n    # TODO\n    pass\n",
+  "hints": [
+   "sorted(range(len(z)), key=lambda i: z[i]) finds the order of indices.",
+   "Copy first; do not mutate the input."
+  ],
+  "tests": [
+   {
+    "name": "k=1 leaves a single finite entry",
+    "code": "import math\nz = top_k([1.0, 3.0, 2.0], 1)\nassert sum(1 for v in z if not math.isinf(v)) == 1\nassert z[1] == 3.0"
+   },
+   {
+    "name": "the filtered entries are -inf",
+    "code": "import math\nz = top_k([5.0, 1.0, 4.0, 0.0], 2)\nassert math.isinf(z[1]) and z[1] < 0\nassert math.isinf(z[3]) and z[3] < 0"
+   },
+   {
+    "name": "k equal to the length keeps all",
+    "code": "import math\nz = top_k([1.0, 2.0, 3.0], 3)\nassert all(not math.isinf(v) for v in z)"
+   }
+  ],
+  "solution": "import math\n\ndef top_k(logits, k):\n    z = [float(v) for v in logits]\n    if k < len(z):\n        order = sorted(range(len(z)), key=lambda i: z[i])\n        for i in order[:-k]:\n            z[i] = -math.inf\n    return z\n"
+ },
+ {
+  "slug": "llm-lab6-3",
+  "chapter": 106,
+  "title": "Lab 6 · temperature sampling",
+  "difficulty": "medium",
+  "prompt": "Sample one token from softmax(logits / temperature) using rng.random(). temperature divides before the softmax. A very low temperature should return the argmax.",
+  "starter": "import math\n\ndef sample(logits, temperature, rng):\n    \"\"\"Return one token id sampled with temperature. rng has .random().\"\"\"\n    # TODO: softmax, then walk the cumulative sum against rng.random()\n    pass\n",
+  "hints": [
+   "p = softmax([z / temperature for z in logits]).",
+   "Walk the cumulative sum; return the first index where it exceeds r * 1 (or the last)."
+  ],
+  "tests": [
+   {
+    "name": "very low temperature is greedy",
+    "code": "class R:\n    def random(self):\n        return 0.5\nassert sample([1.0, 3.0, 2.0], 0.01, R()) == 1"
+   },
+   {
+    "name": "temperature changes the pick",
+    "code": "class R:\n    def random(self):\n        return 0.4\nassert sample([0.0, 1.0], 10.0, R()) == 0\nassert sample([0.0, 1.0], 0.1, R()) == 1"
+   },
+   {
+    "name": "deterministic for the same seed",
+    "code": "import random\nassert sample([1.0, 2.0, 3.0], 1.0, random.Random(7)) == sample([1.0, 2.0, 3.0], 1.0, random.Random(7))"
+   }
+  ],
+  "solution": "import math\n\ndef sample(logits, temperature, rng):\n    z = [float(v) / temperature for v in logits]\n    m = max(z)\n    e = [math.exp(v - m) for v in z]\n    s = sum(e)\n    p = [v / s for v in e]\n    r = rng.random()\n    acc = 0.0\n    for i, pi in enumerate(p):\n        acc += pi\n        if r < acc:\n            return i\n    return len(p) - 1\n"
+ },
+ {
+  "slug": "llm-lab8-1",
+  "chapter": 108,
+  "title": "Lab 8 · train/validation split",
+  "difficulty": "easy",
+  "prompt": "Split a corpus into train and validation parts at int(len(text) * frac). The two pieces must join back into the original text.",
+  "starter": "def split_corpus(text, frac):\n    \"\"\"Return (train, val) splitting at int(len(text) * frac).\"\"\"\n    # TODO\n    pass\n",
+  "hints": [
+   "n = int(len(text) * frac); return text[:n], text[n:]."
+  ],
+  "tests": [
+   {
+    "name": "lengths add up",
+    "code": "t = 'abcdefghij'\ntrain, val = split_corpus(t, 0.8)\nassert len(train) == 8 and len(val) == 2"
+   },
+   {
+    "name": "the original text is preserved",
+    "code": "t = 'hello world'\ntrain, val = split_corpus(t, 0.5)\nassert train + val == t"
+   },
+   {
+    "name": "edges",
+    "code": "t = 'abc'\nassert split_corpus(t, 0.0) == ('', 'abc')\nassert split_corpus(t, 1.0) == ('abc', '')"
+   }
+  ],
+  "solution": "def split_corpus(text, frac):\n    n = int(len(text) * frac)\n    return text[:n], text[n:]\n"
+ }
+]

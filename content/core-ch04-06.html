@@ -1,0 +1,319 @@
+<section class="chapter">
+<h1>Chapter 4 — Loops</h1>
+<p class="lede">So far every line of your programs has run exactly once, top to bottom. Most useful work repeats: add up a hundred readings, inspect every character in a sentence, print a pattern of stars. Writing the same line a hundred times is not programming — a loop is. This chapter covers the two loop forms, the ways to leave a loop early, and the counting habits that keep the boundaries right.</p>
+
+<h2>Repeating work with for and range()</h2>
+<p>For a fixed number of repetitions, <code>for</code> with <code>range()</code> is the clearest tool. The loop takes each value the iterable produces, binds it to a name, and runs the indented block once per value. When the values run out, the loop ends and execution continues below it.</p>
+<pre><code>for lap in range(5):
+    print("lap", lap + 1)</code></pre>
+<p><code>range(5)</code> produces 0, 1, 2, 3, 4 — five values, starting at zero and stopping <i>before</i> 5. That stopping rule is not a quirk to memorise: it is what makes <code>range(n)</code> mean “n items”, so the number of passes always equals the number in the brackets.</p>
+<pre><code>for n in range(1, 6):
+    print(n * n, end=" ")
+print()</code></pre>
+<p>With two arguments, <code>range(1, 6)</code> starts at 1 and produces 1 through 5 — five values again, because 6 − 1 = 5. A third argument is the step, and it may be negative:</p>
+<pre><code>for n in range(10, 0, -2):
+    print(n, end=" ")
+print()          # 10 8 6 4 2</code></pre>
+<p>The loop variable is an ordinary variable and survives after the loop, holding its last value. Do not rely on that; treat it as belonging to the loop. If you only need to repeat something and never use the number, name the variable <code>_</code> to say so.</p>
+
+<h2>Looping over sequences</h2>
+<p><code>for</code> works on anything that can hand out items in order. A string hands out its characters one at a time, so counting becomes a loop plus a condition:</p>
+<pre><code>word = "banana"
+vowels = 0
+for ch in word:
+    if ch in "aeiou":
+        vowels += 1
+print(vowels)          # 3</code></pre>
+<p><code>vowels += 1</code> is shorthand for <code>vowels = vowels + 1</code>. The variable is created before the loop and updated inside it — a pattern used constantly, and one that only works because the name survives between passes.</p>
+<p>Sometimes you need the position as well as the value. Then loop over indexes that the string actually has:</p>
+<pre><code>word = "loop"
+for i in range(len(word)):
+    print(i, word[i])</code></pre>
+<p><code>len(word)</code> is 4, so <code>range(4)</code> gives 0 through 3, exactly the valid indexes. That is the safe pattern. <code>range(len(word) + 1)</code> would ask for index 4 and raise <code>IndexError</code> on the last pass.</p>
+<div class="callout warn"><b>Watch out.</b> <code>range</code> never includes its stop value. <code>range(5)</code> is 0–4, <code>range(1, 5)</code> is 1–4, and a loop meant to reach 5 needs <code>range(1, 6)</code>. If a loop runs one pass too few or too many, check the boundary first: <code>range(start, stop)</code> always produces exactly <code>stop - start</code> values, so count them on your fingers before hunting for a deeper bug.</div>
+
+<h2>while loops: repeat until something changes</h2>
+<p><code>while</code> rechecks a condition before every pass and stops the moment it is false. Use it when the number of repetitions depends on the data rather than a count you already know.</p>
+<pre><code>n = 100
+steps = 0
+while n > 1:
+    n = n // 2
+    steps += 1
+print(steps)          # 6</code></pre>
+<p><code>//</code> is integer division: 25 // 2 is 12, not 12.5. The condition is tested again after each pass, and the body moves <code>n</code> toward 1, so the loop is guaranteed to end. Delete the line that changes <code>n</code> and the loop never stops — the classic infinite loop. When a <code>while</code> runs forever, the cause is almost always a body that never moves the condition toward false.</p>
+<p>The loop must make progress, and it must make it in the right direction. <code>while n &gt; 1</code> with <code>n = n + 1</code> also runs forever, and it looks correct at a glance.</p>
+
+<h2>break, continue, and the loop else</h2>
+<p><code>break</code> leaves the loop immediately; the rest of the block is skipped and execution continues after the loop. <code>continue</code> skips the rest of the current pass and starts the next one.</p>
+<pre><code>for n in range(10, 30):
+    if n % 7 == 0:
+        print("found", n)
+        break
+    print("checked", n)
+else:
+    print("no multiple of 7")</code></pre>
+<p>The <code>else</code> clause on a loop runs only when the loop finished without hitting <code>break</code>. Read it as “no break happened”, not “the loop ran”. That makes it the natural companion of a search: either you found something and broke out, or the search exhausted its candidates and the <code>else</code> reports the miss. <code>continue</code> does not affect it — finishing the last pass normally still runs the <code>else</code>.</p>
+<pre><code>total = 0
+for n in range(1, 11):
+    if n % 2:
+        continue
+    total += n
+print(total)          # 30</code></pre>
+<p><code>n % 2</code> is 1 for odd numbers and 0 for even, so the condition is true exactly when <code>n</code> is odd. Those passes are skipped before the addition. <code>while</code> loops accept an <code>else</code> too, and <code>while True:</code> with a <code>break</code> inside is an idiomatic way to say “loop until found”.</p>
+
+<h2>Nested loops: tables and triangles</h2>
+<p>Put one loop inside another and the inner loop runs to completion for every single pass of the outer one. The outer loop controls rows; the inner loop controls what goes in each row:</p>
+<pre><code>for a in range(1, 4):
+    for b in range(1, 4):
+        print(f"{a * b:3}", end="")
+    print()</code></pre>
+<p><code>f"{a * b:3}"</code> right-aligns the number in three characters, which lines the columns up. The inner loop prints three products, then the bare <code>print()</code> ends the row. Three rows of three means nine prints in total, so the work multiplies rather than adds.</p>
+<p>Star patterns work the same way, with the inner count driven by the outer variable. That dependency is what turns a rectangle into a shape:</p>
+<pre><code>for row in range(1, 6):
+    for star in range(row):
+        print("*", end="")
+    print()</code></pre>
+<p>Row 1 prints one star, row 2 prints two, and so on to five. Swap <code>range(row)</code> for <code>range(6 - row)</code> and the triangle turns upside down. Building each row in a string first is often cleaner than printing piece by piece: start with <code>line = ""</code>, append characters in the inner loop, then print the finished line.</p>
+
+<h2>Counting, accumulating, and designing in steps</h2>
+<p>Two patterns cover most loop work. A <b>counter</b> starts at 0 and adds 1 per event. An <b>accumulator</b> starts at 0 (or at <code>""</code> for text) and adds each value that qualifies. Both are created before the loop and read after it:</p>
+<pre><code>total = 0
+count = 0
+for n in range(1, 101):
+    if n % 3 == 0 and n % 5 != 0:
+        total += n
+        count += 1
+print(total, count)                 # 1368 27
+print(round(total / count, 2))      # 50.67</code></pre>
+<p>Before writing that code, write the algorithm in words: <i>look at every number from 1 to 100; keep the ones divisible by 3 but not by 5; add each to a running total; count them; divide at the end.</i> Each clause maps to one line. This step is the actual design work, and doing it in prose first is faster than debugging a loop whose purpose you never stated.</p>
+<p>Then check the edges while the plan is still in your head. What if no number qualified? <code>count</code> would be 0 and the division would raise <code>ZeroDivisionError</code>, so a guard is the honest fix. Tracing one pass by hand — <code>n = 3</code> qualifies, <code>n = 15</code> does not — catches most boundary mistakes before they become bugs.</p>
+<div class="callout tip"><b>Tip.</b> While building a loop, print the loop variable and the accumulator on the first two or three passes, then delete the print. Seeing <code>n=1 total=0</code> followed by <code>n=2 total=3</code> tells you in five seconds whether the boundary and the order of operations are right.</div>
+<div class="practice"><h2>Practice</h2><p>Exercises <b>ex-4-1</b> to <b>ex-4-3</b> on the site.</p></div>
+</section>
+
+<section class="chapter">
+<h1>Chapter 5 — Composite Types</h1>
+<p class="lede">One value is rarely enough. A list keeps many values in order, a tuple keeps a small fixed group, a dictionary maps names to values, and a set answers “is this value already known?”. These four types carry most real programs, and the majority of bugs in them come from one question: did you copy the data, or just the name pointing at it?</p>
+
+<h2>Lists: index, slice, change</h2>
+<pre><code>scores = [72, 88, 95, 60]
+print(scores[0], scores[-1])        # 72 60
+print(scores[1:3])                  # [88, 95]
+scores[1] = 90
+scores.append(100)
+print(scores)                       # [72, 90, 95, 60, 100]
+print(len(scores))                  # 5</code></pre>
+<p>Square brackets build a list. Indexes start at 0, and negative indexes count from the end, so <code>-1</code> is the last item. A slice <code>a[start:stop]</code> returns a <i>new</i> list of the items from start up to but not including stop — the same stopping rule as <code>range</code>.</p>
+<p>Lists are mutable: <code>scores[1] = 90</code> replaces an item in place and the list keeps its identity. Slices can be assigned to as well, and the replacement need not have the same length, so a slice assignment can grow or shrink the list:</p>
+<pre><code>letters = ["a", "b", "c", "d"]
+letters[1:3] = ["B", "C", "D"]
+print(letters)          # ['a', 'B', 'C', 'D', 'd']
+letters[1:4] = []
+print(letters)          # ['a', 'd']</code></pre>
+<p>An empty slice assignment deletes the section. This is powerful and easy to misuse; when you only need to replace one item, index it directly.</p>
+
+<h2>Adding, removing, sorting — and one trap</h2>
+<pre><code>names = ["zoe", "adam", "mia"]
+names.sort()
+print(names)                        # ['adam', 'mia', 'zoe']
+print(sorted(names, reverse=True))  # ['zoe', 'mia', 'adam']
+names.append("li")
+names.remove("mia")
+print(names.pop())                  # li
+print(names)                        # ['adam', 'zoe']</code></pre>
+<p><code>sort()</code> sorts in place and returns <code>None</code>, so <code>names = names.sort()</code> leaves you with <code>None</code>. <code>sorted()</code> builds a new list and leaves the original alone — use it when the original order still matters. <code>append</code> adds to the end, <code>insert(i, x)</code> puts <code>x</code> at index <code>i</code>, <code>remove(x)</code> deletes the first item equal to <code>x</code>, and <code>pop()</code> removes and returns the last item.</p>
+<div class="callout warn"><b>Watch out.</b> Never remove items from a list while looping over that same list. The loop keeps an internal position, and deleting an item shifts everything after it one place left, so the item that slides into the current position is never inspected.</div>
+<pre><code>nums = [1, 2, 2, 3, 2]
+for n in nums:
+    if n == 2:
+        nums.remove(n)
+print(nums)          # [1, 3, 2] — one 2 survived</code></pre>
+<p>The result is not “all 2s removed” but “some 2s removed”, which is worse because it looks nearly right. The clean fix is to build a new list: <code>nums = [n for n in nums if n != 2]</code>. If you truly must remove in place, loop over a copy — <code>for n in nums[:]</code> — and accept that you are doing two things at once.</p>
+
+<h2>Names point at values: aliasing and copying</h2>
+<p>The most important idea in this chapter: a variable does not contain a list. It contains a <b>reference</b> — a pointer to the list object, which lives elsewhere. Assignment copies the reference, so two names can point at the same object. The data is shared, and a change made through one name is visible through the other.</p>
+<pre><code>a = [1, 2, 3]
+b = a
+b.append(4)
+print(a)          # [1, 2, 3, 4] — a changed too
+print(a is b)     # True — one object, two names</code></pre>
+<p><code>is</code> asks “same object?”; <code>==</code> asks “same contents?”. After <code>b = a</code> both answers are true. To get an independent list, copy it:</p>
+<pre><code>a = [1, 2, 3]
+c = a[:]
+c.append(4)
+print(a)          # [1, 2, 3] — untouched
+print(a is c)     # False
+print(a == c)     # False</code></pre>
+<p><code>a[:]</code>, <code>list(a)</code>, and <code>a.copy()</code> all make a <b>shallow</b> copy: a new outer list whose items are the same objects as before. That is enough for numbers and strings, which cannot change. It is not enough for a list of lists:</p>
+<pre><code>grid = [[0, 0], [0, 0]]
+other = grid[:]
+other[0][0] = 9
+print(grid)       # [[9, 0], [0, 0]] — the inner row is shared</code></pre>
+<p>The outer list was copied; the two inner lists were not. Writing into row 0 through the copy writes into the row both grids point at. For nested data, copy the whole structure:</p>
+<pre><code>import copy
+grid = [[0, 0], [0, 0]]
+safe = copy.deepcopy(grid)
+safe[0][0] = 9
+print(grid)       # [[0, 0], [0, 0]]</code></pre>
+<div class="callout warn"><b>Watch out.</b> <code>b = a</code> makes no copy at all. If a change made “in the copy” appears in the original, two names point at one object — check with <code>a is b</code>. And if a change to one element of a copied list shows up in the original, the copy was shallow and the element was itself a list or dictionary.</div>
+
+<h2>List comprehensions</h2>
+<p>Most loops that build a list follow one shape: start empty, loop, append. A list comprehension writes that shape as a single expression:</p>
+<pre><code>squares = [n * n for n in range(6)]
+print(squares)                          # [0, 1, 4, 9, 16, 25]
+
+evens = [n for n in range(20) if n % 2 == 0]
+print(evens)                            # [0, 2, 4, ..., 18]
+
+words = ["Loop", "list", "map", "while"]
+short = [w.lower() for w in words if len(w) &lt;= 4]
+print(short)                            # ['loop', 'list', 'map']</code></pre>
+<p>Read it in execution order even though the result is written first: the <code>for</code> names the source, the <code>if</code> filters what passes, and the expression at the front says what each surviving item becomes. Keep comprehensions to one <code>for</code> and at most one <code>if</code>. If it needs two loops or an explanatory comment, a plain loop is easier to read, and readable beats short.</p>
+
+<h2>Tuples: fixed groups you can trust</h2>
+<pre><code>point = (3, 5)
+x, y = point            # unpacking
+print(x, y)             # 3 5
+print(point[0])         # 3
+
+single = (42,)          # the comma makes the tuple
+print(type(single))     # &lt;class 'tuple'&gt;</code></pre>
+<p>Tuples are like lists that cannot change: no append, no item assignment. That restriction is the point. A tuple promises its values stay put, so you can pass it around without wondering who will modify it. Unpacking turns a group into named parts in one line, and a swap is just unpacking: <code>x, y = y, x</code>.</p>
+<p>Because they cannot change, tuples can be dictionary keys:</p>
+<pre><code>screens = {(1920, 1080): "landscape", (1080, 1920): "portrait"}
+print(screens[(1920, 1080)])      # landscape</code></pre>
+<p>Dictionary keys must be immutable, because the dictionary finds them through a hash that must never change. A tuple of numbers hashes to the same value forever; a list’s contents can change, so a list cannot be a key. A tuple is hashable only if everything inside it is — <code>(1, [2])</code> is not.</p>
+<p>Choose a tuple when the group is fixed and position carries meaning — a coordinate, a date, a row read from a file — and a list when you will add, remove, or sort. The type documents the intent, and a reader can trust a tuple not to change underneath them while they work.</p>
+
+<h2>Dictionaries, nested data, and sets</h2>
+<pre><code>prices = {"apple": 1.2, "pear": 0.8}
+print(prices["apple"])              # 1.2
+prices["plum"] = 1.5                # add
+print(prices.get("kiwi", 0))        # 0 instead of KeyError
+print("pear" in prices)             # True — checks keys
+for name, price in prices.items():
+    print(name, price)</code></pre>
+<p><code>prices[key]</code> raises <code>KeyError</code> when the key is missing, while <code>.get(key, default)</code> returns the default instead — usually what you want for an optional lookup. Iterating a dictionary yields keys; <code>.keys()</code>, <code>.values()</code>, and <code>.items()</code> make the intent explicit. Dictionaries keep insertion order, but they are not sorted: sort the keys when order matters.</p>
+<p>Two habits prevent most dictionary bugs: use <code>.get</code> for keys that may be absent, and decide once what a missing key means — zero, <code>None</code>, or an error. Mixing those answers inside one function is how a <code>KeyError</code> escapes into production.</p>
+<p>Values can be anything, including other dictionaries. Each lookup then applies one level at a time:</p>
+<pre><code>people = {
+    "ada": {"role": "engineer", "years": 3},
+    "grace": {"role": "admiral", "years": 9},
+}
+print(people["ada"]["role"])        # engineer
+people["ada"]["years"] += 1
+print(people["ada"]["years"])       # 4</code></pre>
+<p>A set stores unique values and answers membership very fast. It drops duplicates and keeps no order:</p>
+<pre><code>seen = set()
+for word in "the cat the dog the".split():
+    seen.add(word)
+print(seen)              # {'the', 'cat', 'dog'} — order varies
+print(sorted(seen))      # ['cat', 'dog', 'the']</code></pre>
+<p>Use a set for “is this already known?” and for deduplication, not for ordering. If both matter, sort the set or use a dictionary to keep insertion order.</p>
+<div class="callout tip"><b>Tip.</b> A dictionary is the natural counter. <code>counts[word] = counts.get(word, 0) + 1</code> adds one to the tally and starts a new one at 1 automatically, with no <code>if word in counts</code> branch.</div>
+<div class="practice"><h2>Practice</h2><p>Exercises <b>ex-5-1</b> to <b>ex-5-3</b> on the site.</p></div>
+</section>
+
+<section class="chapter">
+<h1>Chapter 6 — Functions and Code Reuse</h1>
+<p class="lede">Your scripts are getting long, and the same three lines keep appearing in different places. A function gives that work a name so you can call it by name. That is not just tidiness: a function is a testable unit, a boundary for names, and the only practical way to build something larger than a page.</p>
+
+<h2>Defining and calling functions</h2>
+<pre><code>def area(width, height):
+    """Return the area of a rectangle."""
+    return width * height
+
+print(area(3, 4))       # 12</code></pre>
+<p><code>def</code> introduces a name, a parameter list, and an indented body. Nothing runs when the definition is read; the body runs when it is called. The names in the definition are <b>parameters</b>; the values passed in are <b>arguments</b>. <code>area(3, 4)</code> binds <code>width=3</code> and <code>height=4</code> for that call only, which is why one function can serve a thousand different calls.</p>
+<p>The string just under <code>def</code> is a docstring. It states the contract — what goes in, what comes out — and tools show it: <code>help(area)</code> prints it, <code>area.__doc__</code> returns it. Write it for a caller who has not read the body.</p>
+<p>Arguments arrive as references, exactly like assignment. A function that mutates a list parameter changes the caller’s list, while one that rebinds the parameter changes nothing outside the call. The rule from Chapter 5 — assignment copies the name, not the data — applies to every call you make.</p>
+
+<h2>return: sending a value back</h2>
+<pre><code>def shout(text):
+    return text.upper() + "!"
+
+def report(text):
+    print(shout(text))
+
+value = report("hello")     # prints HELLO!
+print(value)                # None</code></pre>
+<p><code>return</code> ends the function and hands a value to the caller. A function that only prints returns <code>None</code>, and <code>None</code> is not a string you can keep working with. That is why <code>report</code> is hard to reuse and <code>shout</code> is easy: one computes, the other only displays.</p>
+<p><code>return</code> may appear anywhere in the body, and the first one reached wins:</p>
+<pre><code>def sign(n):
+    if n &gt; 0:
+        return "positive"
+    if n &lt; 0:
+        return "negative"
+    return "zero"</code></pre>
+<p>A function with no <code>return</code> at all also gives back <code>None</code>. And a function can return several values at once by returning a tuple, which the caller unpacks: <code>return low, high</code> followed by <code>low, high = ...</code>.</p>
+
+<h2>Default and keyword arguments</h2>
+<pre><code>def greet(name, greeting="Hello", punctuation="!"):
+    return f"{greeting}, {name}{punctuation}"
+
+print(greet("Ada"))                     # Hello, Ada!
+print(greet("Ada", "Hi"))               # Hi, Ada!
+print(greet("Ada", punctuation="?"))    # Hello, Ada?
+print(greet(greeting="Hey", name="Bo")) # Hey, Bo!</code></pre>
+<p>Defaults make a parameter optional, so the common case stays short and the unusual case stays possible. Arguments passed by name are <b>keyword arguments</b>: they may appear in any order, but each must follow the positional arguments in the call. A parameter without a default cannot follow one with a default, and an argument may not be filled twice — <code>greet("Ada", name="Bo")</code> raises <code>TypeError</code>.</p>
+<p>Keyword arguments pay for their extra typing at the call site. <code>open("notes.txt", encoding="utf-8")</code> says what it means; a chain of anonymous positional arguments does not.</p>
+
+<h2>The mutable default trap</h2>
+<pre><code>def add_item(item, basket=[]):        # looks harmless, is not
+    basket.append(item)
+    return basket
+
+print(add_item("apple"))              # ['apple']
+print(add_item("pear"))               # ['apple', 'pear']
+print(add_item("plum"))               # ['apple', 'pear', 'plum']</code></pre>
+<p>Each call that omits <code>basket</code> is supposed to start with an empty list, yet the calls pile up. The reason is timing: the default expression <code>[]</code> is evaluated <b>once</b>, when the <code>def</code> statement runs, and the resulting list is stored on the function object. Every later call that omits the argument receives that same stored list. The function is quietly accumulating every caller’s data in one shared object — a real defect that ships in real code, not a puzzle.</p>
+<pre><code>def add_item(item, basket=None):
+    if basket is None:
+        basket = []
+    basket.append(item)
+    return basket</code></pre>
+<p><code>None</code> becomes the sentinel, and a fresh list is built inside each call. Test with <code>is None</code>, never with <code>if not basket</code>: an empty list passed deliberately is falsy, and that test would silently throw the caller’s list away. The same trap applies to <code>{}</code> and <code>set()</code> defaults, so the rule is: <b>never put a mutable object in a default</b>.</p>
+
+<h2>Scope and LEGB</h2>
+<p>Names live in scopes, and Python looks a name up in a fixed order: Local, Enclosing, Global, Built-in — LEGB.</p>
+<pre><code>count = 0                   # global
+
+def bump():
+    count = 1               # local; a different name
+    return count
+
+print(bump(), count)        # 1 0</code></pre>
+<p>Inside <code>bump</code>, <code>count = 1</code> creates a <i>local</i> variable; the global is untouched. Assignment always binds a name in the current scope. To change the module-level name you must declare it:</p>
+<pre><code>def reset():
+    global count
+    count = 0</code></pre>
+<p><code>global</code> works and is worth knowing. It is also worth avoiding. A function that reads and writes module-level state is hard to test, because calling it twice is not the same as calling it once. Pass values in as parameters and return results instead; keep <code>global</code> for small scripts and counters you genuinely mean to share.</p>
+<p>Enclosing covers nested functions. A function defined inside another one can read the outer function’s names, and it remembers them after the outer call has finished:</p>
+<pre><code>def make_adder(n):
+    def add(x):
+        return x + n        # n comes from the enclosing scope
+    return add
+
+add5 = make_adder(5)
+print(add5(3))              # 8</code></pre>
+<p>That is a closure, and it is the reason nested functions are useful: the inner function carries its context with it.</p>
+
+<h2>Small functions, docstrings, and recursion</h2>
+<p>A good function does one thing you can describe without “and”. It takes its inputs as parameters, returns its result, and touches nothing else. That makes it testable in isolation, and a function you can test is a function you can change without fear. Twenty small functions stay understandable for years; one two-hundred-line function is understood once and then avoided.</p>
+<p>A practical test of the rule: describe the function in one sentence without using the word “and”. If the sentence needs an “and”, two functions are hiding inside one. Splitting them costs a name and saves an afternoon.</p>
+<p>Document the ones you will call again, even if “again” means later today. One line, imperative, starting with a capital: “Return the area of a rectangle.” Add a note when behaviour is surprising — units, empty input, errors raised. The docstring is also the first thing <code>help()</code> shows, so it is the cheapest documentation you will ever write.</p>
+<p>Write down the surprising part explicitly: that the function sorts its argument in place, that it raises <code>ValueError</code> on empty input, that a result is rounded. A caller who reads only the docstring should not be able to misuse the function.</p>
+<p>Recursion is not a trick for its own sake. It is the natural fit when a structure contains smaller copies of itself, which is why trees and nested dictionaries take to it and plain counting does not.</p>
+<p>Recursion is a function calling itself on a smaller version of the same problem. Factorial is the standard first example, because <code>5! = 5 × 4 × 3 × 2 × 1</code> and <code>n! = n × (n-1)!</code> are the same statement:</p>
+<pre><code>def factorial(n):
+    """Return n! for n &gt;= 0."""
+    if n &lt;= 1:
+        return 1
+    return n * factorial(n - 1)
+
+print(factorial(5))     # 120</code></pre>
+<p>Two parts are mandatory. The <b>base case</b> returns without recursing, and the <b>recursive case</b> moves toward the base case. Remove the base case and the calls never stop; fail to shrink the argument and they never reach it.</p>
+<div class="callout warn"><b>Watch out.</b> Every pending call sits on the call stack, and Python caps that stack. <code>sys.getrecursionlimit()</code> is usually 1000, so <code>factorial(2000)</code> raises <code>RecursionError</code> even though the arithmetic is fine. Python does not optimise tail calls, and a recursion thousands of levels deep fails where a loop would succeed. Use recursion where the data is naturally nested — trees, nested dictionaries — and a loop for plain counting.</div>
+<div class="callout tip"><b>Tip.</b> When a function needs more than about twenty lines, or a comment explaining a middle step, that step wants to be its own function with its own name. The name is the documentation.</div>
+<div class="practice"><h2>Practice</h2><p>Exercises <b>ex-6-1</b> to <b>ex-6-3</b> on the site.</p></div>
+</section>

@@ -1,0 +1,282 @@
+<section class="chapter">
+<h1>Chapter 1 — Python Basics</h1>
+<p class="lede">A program is a list of instructions a machine will follow exactly, and Python is one of the friendliest ways to write that list. This chapter shows you what Python actually is, how to get code into the interpreter, and the habits everything later depends on: assignment, input and output, indentation, and reading the error message when something breaks.</p>
+
+<h2>What Python is</h2>
+<p>Python is a programming language: a fixed set of rules for writing instructions, plus a defined meaning for every construct. The second thing called Python is the interpreter, the program installed on your machine that reads your code and carries out the instructions. The two are separate. The language is a document; the interpreter is software, and this course uses the standard one, CPython.</p>
+<p>When you run a file, the interpreter does not act on your text character by character. It first compiles the file to an internal form called bytecode, then executes that. You never see the bytecode, but the two stages explain a behaviour that confuses beginners: a line can be perfectly valid Python and still fail, because syntax is checked before anything runs while names and values are only checked when the line executes.</p>
+<p>Python is general purpose: short automation scripts, data analysis, web services, teaching. Its large standard library means common jobs need no extra installs. Install Python 3 and check it once: <code>python --version</code> should print a version starting with 3. If it prints 2.x, try <code>python3</code> or, on Windows, <code>py -3</code>. Everything in this book targets Python 3.</p>
+
+<h2>The interpreter, the REPL, and scripts</h2>
+<p>You can hand Python code to the interpreter in two ways that matter now: interactively, and from a file.</p>
+<p>Start <code>python</code> with no filename and you get the read-eval-print loop, universally called the REPL. It shows a prompt — <code>&gt;&gt;&gt;</code> — reads one statement, evaluates it, prints the resulting value, and repeats. Values are echoed for you: typing <code>2 + 2</code> prints <code>4</code>. Names you create stay alive until you exit, so the REPL is the right place to answer a small question: what does <code>round(2.5)</code> give, or what type does <code>int("7")</code> return? Exit with <code>exit()</code>, or Ctrl+D on macOS and Linux, Ctrl+Z then Enter on Windows. A block such as an <code>if</code> statement is entered across several lines, and the prompt changes to <code>...</code> until you leave a blank line.</p>
+<p>A script is a plain-text file whose name ends in <code>.py</code>. You run it with <code>python hello.py</code>, and the interpreter executes the file from top to bottom. There is no echo: the script produces output only where you print something. That difference catches almost everyone once. <code>2 + 2</code> typed at the prompt shows <code>4</code>; the same line inside a file shows nothing at all. If a script appears to do nothing, it usually computed a value and dropped it.</p>
+<pre><code># hello.py
+name = input("What is your name? ")
+print("Hello, " + name + "!")
+# running: python hello.py
+# What is your name? Ada
+# Hello, Ada!</code></pre>
+
+<h2>Variables and assignment</h2>
+<p>A variable is a name bound to a value. The single equals sign assigns: Python evaluates whatever is on the right, then binds the name on the left to that value. It does not assert that two things are equal — that is <code>==</code>, and Chapter 3 uses it.</p>
+<p>Rebinding is the everyday case. In <code>score = score + 5</code> the right side is computed first using the old value of <code>score</code>, and only then is the name rebound to the result. Short forms exist: <code>+=</code>, <code>-=</code>, <code>*=</code>, <code>//=</code>. A name can point at an integer on one line and a string on the next, because the type belongs to the value, not to the name; Python is dynamically typed. You can check what a name currently refers to with <code>type(score)</code>.</p>
+<p>Names may contain letters, digits and underscores, must not start with a digit, are case-sensitive, and cannot be keywords such as <code>if</code> or <code>for</code>. Write them in lower_case_with_underscores. You never declare a variable, but you must assign before you use it: reading an unassigned name raises <code>NameError</code>.</p>
+<pre><code>score = 10
+score = score + 5
+print(score)          # 15
+
+lives = 3
+lives -= 1            # same as lives = lives - 1
+print(lives)          # 2
+
+x, y = 1, 2
+x, y = y, x           # swap without a temporary name
+print(x, y)           # 2 1</code></pre>
+
+<h2>Printing output and reading input</h2>
+<p><code>print()</code> writes its arguments to standard output, separating them with a single space and ending with a newline. Two keyword arguments change that: <code>sep</code> sets the separator, and <code>end</code> replaces the newline. <code>print()</code> also returns <code>None</code>; it is an action, not a value, so <code>result = print("hi")</code> stores nothing useful.</p>
+<p><code>input()</code> takes an optional prompt string, writes it, waits for the user to press Enter, and returns everything typed as a string. The trailing newline is stripped; nothing else is interpreted. That return type is the subject of a trap in the next chapter: text that looks like a number is still text.</p>
+<pre><code>name = input("Name: ")
+print("Hello,", name)       # Hello, Ada
+
+print("a", "b", sep="-")    # a-b
+print("no newline", end="!")
+print(" done")              # no newline! done</code></pre>
+
+<h2>Indentation is syntax</h2>
+<p>In most languages, blocks are marked with braces. In Python, a block is marked by indentation, and the colon at the end of a header announces that a block follows. Lines with the same indentation belong to the same block; returning to a shallower level closes it. Indentation is not cosmetic here. Change it and you change what the program does, or you stop it from running at all.</p>
+<p>Four spaces per level is the standard. The interpreter enforces consistency, not width, but four spaces is what readers expect. Never mix tabs and spaces in one block: the characters look identical on screen, and Python raises <code>TabError</code> because they are not the same. Set your editor to insert spaces when you press Tab. A block may not be empty; if you need a placeholder, write <code>pass</code>.</p>
+<pre><code>temperature = 31
+if temperature &gt; 30:
+    print("It is hot.")
+    print("Drink water.")
+print("Done.")</code></pre>
+<p>Both indented lines run only when the condition is true, and the last line runs either way, because it sits back at the outer level.</p>
+
+<h2>Comments</h2>
+<p>A comment starts with <code>#</code> and runs to the end of the line. The interpreter ignores it entirely. Use comments to explain why a line exists, or to record a value the code cannot show by itself, such as the expected output. A comment that restates the code adds noise: <code>score = score + 1  # add one to score</code> tells a reader nothing.</p>
+<p>Python has no block-comment syntax. For a longer note, write several <code>#</code> lines, or put a string on its own line as the first statement of a file or function. That is a docstring — documentation rather than a comment — and later chapters use it deliberately.</p>
+<pre><code># Price after 8% sales tax.
+price = 50
+tax = price * 0.08        # 4.0
+print(price + tax)        # 54.0</code></pre>
+
+<h2>Reading a traceback</h2>
+<p>Two kinds of failure look different. A syntax error is caught before anything runs: you get the file, the line, a caret under the offending position, and a message such as <code>SyntaxError: invalid syntax</code>. An exception happens while running, and Python prints a traceback. Read it from the bottom up. The last line names the exception and says what went wrong. Above it are the frames, ordered with the most recent call last, so the frame just above the final line is where execution stopped, and the top frame is where the program started.</p>
+<pre><code>price = 20
+count = 4
+total = price * quanity    # typo: quanity
+print(total)
+
+# Traceback (most recent call last):
+#   File "shop.py", line 3, in &lt;module&gt;
+#     total = price * quanity
+# NameError: name 'quanity' is not defined</code></pre>
+<p>The message gives you the name and the line number, and the fix is on that line. The exceptions you will meet first are <code>NameError</code> (an unassigned or misspelt name), <code>TypeError</code> (the wrong kind of value for an operation), <code>ValueError</code> (right type, unusable content, such as <code>int("abc")</code>), <code>ZeroDivisionError</code>, and <code>IndentationError</code>. Learn the names; the message is usually a complete diagnosis.</p>
+
+<div class="callout tip"><b>Tip.</b> When a traceback points at a long expression, copy its pieces into the REPL one at a time and print their types. Checking takes seconds; guessing can take an evening.</div>
+<div class="callout warn"><b>Watch out.</b> Windows hides file extensions, so saving a script as <code>hello.py</code> in Notepad can quietly produce <code>hello.py.txt</code>. <code>python hello.py</code> then fails, or runs an older file that happens to exist. Turn on file extensions in Explorer and keep scripts in their own folder.</div>
+
+<div class="practice"><h2>Practice</h2><p>Exercises <b>ex-1-1</b> to <b>ex-1-3</b> on the site.</p></div>
+</section>
+
+<section class="chapter">
+<h1>Chapter 2 — Data Types and Operations</h1>
+<p class="lede">Every value in Python has a type, and every operator has rules about which types it accepts. Those rules turn a whole class of mysterious errors into obvious ones. Two habits are worth building: knowing when division stops being integer division, and never trusting a float to be exact.</p>
+
+<h2>The four core types</h2>
+<p>An <b>int</b> is a whole number: <code>10</code>, <code>-3</code>, <code>0</code>. Python integers have arbitrary precision, so they grow as needed instead of overflowing at some machine limit; <code>10 ** 100</code> is a perfectly ordinary value.</p>
+<p>A <b>float</b> is a real number written with a decimal point or an exponent: <code>0.75</code>, <code>-2.5</code>, <code>1e-3</code>. Internally it is an IEEE 754 double: about 17 significant decimal digits, and no exact representation for most fractions.</p>
+<p>A <b>bool</b> has exactly two values, <code>True</code> and <code>False</code>, and comparisons produce it. Booleans are a subclass of int, so <code>True == 1</code> and <code>True + True</code> is <code>2</code>; rely on that only with reason.</p>
+<p>A <b>str</b> is text: a sequence of Unicode characters in quotes. Single and double quotes are equivalent; triple quotes make multi-line strings. None of these four types can be changed in place: they are <b>immutable</b>. A string method returns a new string, and only assignment keeps it. Lists and dictionaries, arriving in Chapter 4, are mutable — a difference that matters when two names refer to one object.</p>
+<pre><code>count = 10          # int
+ratio = 0.75        # float
+ready = True        # bool
+label = "chunk"     # str
+
+print(type(count))   # &lt;class 'int'&gt;
+print(type(ratio))   # &lt;class 'float'&gt;
+
+name = "ada"
+name.upper()         # returns "ADA" and discards it
+print(name)          # ada
+name = name.upper()  # rebinding keeps the new string
+print(name)          # ADA</code></pre>
+
+<h2>Arithmetic and the division family</h2>
+<p>The familiar operators mean what you expect: <code>+</code>, <code>-</code>, <code>*</code>; with two ints the result is an int. Division is where beginners lose precision.</p>
+<p><code>/</code> is true division and always returns a float, even when it divides evenly: <code>4 / 2</code> is <code>2.0</code>, not <code>2</code>. <code>//</code> is floor division: it divides and rounds down to the nearest whole number, so <code>7 // 3</code> is <code>2</code> and <code>7.0 // 3</code> is <code>2.0</code>. Because it rounds toward negative infinity rather than toward zero, <code>-7 // 2</code> is <code>-4</code>, not <code>-3</code>.</p>
+<p><code>%</code> gives the remainder, and it is defined to agree with <code>//</code>: <code>a == (a // b) * b + a % b</code> for any two ints. The sign of the result follows the divisor <code>b</code>, which surprises people: <code>-7 % 2</code> is <code>1</code>, while <code>7 % -2</code> is <code>-1</code>. <code>**</code> raises to a power; an int base with a non-negative int exponent stays an int, and a negative exponent produces a float, so <code>2 ** -1</code> is <code>0.5</code>. All three raise <code>ZeroDivisionError</code> on a zero divisor.</p>
+<pre><code>print(7 + 3, 7 * 3)   # 10 21
+print(7 / 3)     # 2.3333333333333335
+print(7 // 3)    # 2
+print(7 % 3)     # 1
+print(7 ** 3)    # 343
+
+print(-7 // 2)   # -4
+print(-7 % 2)    # 1
+print(7 % -2)    # -1
+print(4 / 2)     # 2.0  still a float
+print(2 ** -1)   # 0.5</code></pre>
+
+<h2>Precedence and associativity</h2>
+<p>Operations run in a fixed order: parentheses first, then <code>**</code>, then unary minus and plus, then <code>*</code>, <code>/</code>, <code>//</code> and <code>%</code>, then <code>+</code> and <code>-</code>. Comparisons and the logical operators come after that, and Chapter 3 covers them. Two consequences look wrong at first glance. Exponentiation binds tighter than unary minus, so <code>-2 ** 2</code> is <code>-4</code>; write <code>(-2) ** 2</code> when you mean positive four. And <code>**</code> is right-associative, so <code>2 ** 3 ** 2</code> is <code>2 ** 9</code>, which is <code>512</code>, not <code>64</code>.</p>
+<p>The other operators of equal precedence group from the left: <code>20 // 3 // 2</code> is <code>6 // 2</code>, which is <code>3</code>. You need not memorise the table: parentheses cost nothing and reset every question. Add them when a reader would otherwise have to think.</p>
+<pre><code>print(2 + 3 * 4)     # 14
+print((2 + 3) * 4)   # 20
+print(-2 ** 2)       # -4
+print((-2) ** 2)     # 4
+print(2 ** 3 ** 2)   # 512
+print(20 // 3 // 2)  # 3</code></pre>
+
+<h2>Converting between types</h2>
+<p>Conversions build a new value; the original is untouched. <code>int()</code> on a float truncates toward zero: <code>int(3.9)</code> is <code>3</code>, <code>int(-3.9)</code> is <code>-3</code>. On a string it parses a whole number and raises <code>ValueError</code> otherwise: <code>int("3.7")</code> fails, while <code>int(" 42 ")</code> succeeds because whitespace and a sign are allowed. <code>float()</code> parses decimal and exponent text, so <code>float("1e3")</code> is <code>1000.0</code>; <code>str()</code> turns any value into readable text. <code>bool()</code> follows a rule Chapter 3 explores fully: zero, <code>0.0</code>, the empty string and <code>False</code> become <code>False</code>, and everything else becomes <code>True</code>.</p>
+<pre><code>print(int("42"))        # 42
+print(int(3.9))         # 3
+print(int(-3.9))        # -3
+print(float("2.5"))     # 2.5
+print(float("1e3"))     # 1000.0
+print(str(42) + "!")    # 42!
+print(bool(""), bool("0"), bool(0))   # False True False</code></pre>
+<p>The string <code>"0"</code> counts as true because it is not empty, so conversion alone does not validate input. Check the text before converting when the user may type something else, as the last section shows.</p>
+
+<h2>Rounding and float imprecision</h2>
+<p>Because a float is stored in binary, most decimal fractions have no exact representation. <code>0.1</code> is slightly more than one tenth, <code>0.2</code> slightly more than two tenths, and their sum is not the stored value of <code>0.3</code>. Printing hides most of it, because Python shows the shortest text that converts back to the same float; comparison exposes it.</p>
+<p><code>round()</code> with no second argument returns an int; with a second argument it rounds to that many decimal places, keeping the input's type. It rounds half to even, not half up: <code>round(2.5)</code> is <code>2</code> and <code>round(3.5)</code> is <code>4</code>. Rounding cannot repair a value that was never exact, so <code>round(2.675, 2)</code> is <code>2.67</code>, because the stored float sits just below the midpoint. Never test floats with <code>==</code>. Compare with a tolerance, using <code>math.isclose</code> or an absolute difference, and keep money as integer cents or as <code>decimal.Decimal</code> when exactness is required.</p>
+<pre><code>print(0.1 + 0.2)            # 0.30000000000000004
+print(0.1 + 0.2 == 0.3)     # False
+print(round(0.1 + 0.2, 2))  # 0.3
+print(round(2.5))           # 2
+print(round(3.5))           # 4
+print(round(2.675, 2))      # 2.67</code></pre>
+
+<h2>Counting with range()</h2>
+<p><code>range()</code> produces a run of integers, and its boundary rule is the source of the most common off-by-one bug in beginner code: it includes the start and excludes the stop. <code>range(5)</code> yields <code>0, 1, 2, 3, 4</code> — five numbers, not six, and never <code>5</code>. <code>range(1, 5)</code> yields <code>1, 2, 3, 4</code>. A third argument sets the step, so <code>range(0, 10, 3)</code> yields <code>0, 3, 6, 9</code>, and a negative step counts down: <code>range(5, 0, -1)</code> yields <code>5, 4, 3, 2, 1</code>. A step of zero raises <code>ValueError</code>.</p>
+<p>Think of the stop value as the boundary where counting halts, not a member of the run. To count from 1 to <code>n</code> inclusive, write <code>range(1, n + 1)</code>. To run exactly <code>n</code> times, write <code>range(n)</code>. <code>range</code> is lazy: it computes each number as needed rather than storing the run. The <code>list()</code> wrapper below only prints the numbers; lists come in Chapter 4.</p>
+<pre><code>print(list(range(5)))            # [0, 1, 2, 3, 4]
+print(list(range(1, 5)))         # [1, 2, 3, 4]
+print(list(range(0, 10, 3)))     # [0, 3, 6, 9]
+print(list(range(5, 0, -1)))     # [5, 4, 3, 2, 1]
+print(len(range(5)))             # 5</code></pre>
+
+<h2>The input() trap</h2>
+<p><code>input()</code> always returns a string. It does not matter that the user typed digits; the result is text. Adding it to a number raises <code>TypeError</code>, comparing it to a number is simply unequal, and adding it to another string glues the two together. Convert with the type you need: <code>int()</code> for whole numbers, <code>float()</code> for decimals. Conversion can fail, so a program that asks for a number should expect a <code>ValueError</code> or check the text first.</p>
+<pre><code>print("5" + "3")             # 53
+print(int("5") + int("3"))   # 8
+
+age = int(input("Age: "))    # user types 30
+print(age + 1)               # 31
+
+height = float(input("Height in metres: "))
+print(height * 100)          # 172.0</code></pre>
+<p>Stripping spaces converts cleanly: <code>int(input("Age: ").strip())</code>. An empty answer raises <code>ValueError</code>, which is why Chapter 3's conditions are the natural partner for input handling.</p>
+
+<div class="callout tip"><b>Tip.</b> If a number must be exact — money, counters, scores — keep it as an int and scale it, for example cents instead of dollars, or grams instead of kilograms. Do the floating-point part only when you display the result.</div>
+<div class="callout warn"><b>Watch out.</b> <code>int()</code> truncates toward zero, but <code>//</code> floors toward negative infinity, so they disagree below zero: <code>int(-3.9)</code> is <code>-3</code> while <code>-3.9 // 1</code> is <code>-4.0</code>. When negative values are possible, decide which behaviour you mean instead of mixing the two.</div>
+
+<div class="practice"><h2>Practice</h2><p>Exercises <b>ex-2-1</b> to <b>ex-2-3</b> on the site.</p></div>
+</section>
+
+<section class="chapter">
+<h1>Chapter 3 — Control Structures</h1>
+<p class="lede">So far every program has run straight through, one line after another. Real programs make decisions, and Python makes them with conditions: comparisons that yield <code>True</code> or <code>False</code>, joined by the logical operators, and turned into branches by <code>if</code>. This chapter covers that machinery, including the shortcuts Python takes while evaluating it.</p>
+
+<h2>Relational operators</h2>
+<p>Six operators compare two values: <code>==</code> equal, <code>!=</code> not equal, <code>&lt;</code> less than, <code>&lt;=</code> less than or equal, <code>&gt;</code> greater than, and <code>&gt;=</code> greater than or equal. Each produces a bool. Note the two equals signs: one assigns, two compare.</p>
+<p>Equality compares values, not names or storage. Numbers compare across types, so <code>1 == 1.0</code> is <code>True</code>, and values of unrelated types are simply unequal rather than an error — <code>"7" == 7</code> is <code>False</code>. Ordering is stricter: comparing a string with a number raises <code>TypeError</code>, because Python refuses to invent an order between them. Comparing two strings is alphabetical by character code, which is predictable for lowercase ASCII but not what you want when sorting text for humans.</p>
+<p>Python also chains comparisons the way mathematics writes them. <code>0 &lt; x &lt; 10</code> means "x is greater than 0 and less than 10", and each value is evaluated once. It is not parsed as <code>(0 &lt; x) &lt; 10</code>.</p>
+<p>Floats deserve one extra warning here. Because a float only approximates most decimals, testing two computed floats with <code>==</code> is unreliable. Keep <code>==</code> for ints, strings and bools, and compare floats with a tolerance, as Chapter 2 showed.</p>
+<pre><code>x = 7
+print(x == 7)              # True
+print(x != 7)              # False
+print(x &gt; 5)               # True
+print(x &lt;= 5)              # False
+print(0 &lt; x &lt; 10)          # True
+print("apple" &lt; "banana")  # True
+print("7" == 7)            # False</code></pre>
+
+<h2>if, elif, else</h2>
+<p>An <code>if</code> statement evaluates a condition and runs its indented block only when the condition is true. A colon ends the header line, and the block is indentation, exactly as in Chapter 1. Optional <code>elif</code> branches are tested in order, and the first true one wins; the rest are skipped without being tested. Optional <code>else</code> runs when no condition was true and takes no condition of its own. Only one branch of a chain ever runs.</p>
+<p>Because testing stops at the first match, order carries meaning. When the bands cover ranges, test the highest threshold first; if you test <code>mark &gt;= 50</code> before <code>mark &gt;= 90</code>, a mark of 95 is labelled C and the program never looks further. An <code>if</code> without an <code>else</code> is fine: when the condition is false, nothing happens and execution continues after the block.</p>
+<pre><code>mark = 68
+if mark &gt;= 90:
+    band = "A"
+elif mark &gt;= 70:
+    band = "B"
+elif mark &gt;= 50:
+    band = "C"
+else:
+    band = "F"
+print(band)      # C</code></pre>
+
+<h2>Logical operators and short-circuiting</h2>
+<p><code>and</code>, <code>or</code> and <code>not</code> combine conditions. <code>not</code> inverts a truth value and always returns a bool. The other two return one of their operands, not necessarily a bool: <code>and</code> returns the first falsy operand, or the last operand if all are truthy; <code>or</code> returns the first truthy operand, or the last operand if all are falsy. That is why <code>user or "guest"</code> works as a default: if <code>user</code> is empty, the empty string is falsy and the second value comes back.</p>
+<p>Both operators short-circuit. They evaluate the left operand, and stop when the result is already decided: <code>and</code> stops at a falsy left side, <code>or</code> stops at a truthy one. The right side is not evaluated at all. This is not a curiosity; it is how you write safe checks such as <code>x != 0 and 10 / x &gt; 2</code>, which never divides by zero. Precedence runs <code>not</code>, then <code>and</code>, then <code>or</code>, so <code>not a and b</code> means <code>(not a) and b</code>. Add parentheses when a reader might hesitate.</p>
+<pre><code>x = 0
+print(x != 0 and 10 / x &gt; 2)   # False, no division happens
+print(False and 1 / 0)         # False
+print(True or 1 / 0)           # True
+print(not True, not 0)         # False True
+print("" or "guest")           # guest
+print("Ada" and "Bob")         # Bob</code></pre>
+
+<h2>Truthiness of empty values</h2>
+<p>An <code>if</code> accepts any value as its condition and converts it to a truth value. The falsy values are <code>False</code>, <code>None</code>, numeric zero in every form, the empty string, and later the empty list, tuple, dictionary and set. Everything else is truthy, including negative numbers, tiny fractions, and every non-empty string. Text is not parsed: <code>"0"</code>, <code>"False"</code> and <code>"no"</code> are all truthy because each contains characters.</p>
+<p>Whitespace counts as content too. The string <code>" "</code> is truthy even though it looks empty, which is why text read from a keyboard is normally stripped before the test: <code>if answer.strip():</code>. Empty means zero characters, not zero visible ones.</p>
+<p>This gives you two idioms. Use <code>if name:</code> when empty text means "not provided". Use an explicit comparison when zero is a real value and must not be confused with missing: <code>count</code> of <code>0</code> is falsy, so <code>if count:</code> skips a legitimate zero. Later, when a value can be absent without being zero, you will test <code>if value is not None</code> instead.</p>
+<pre><code>print(bool(""), bool("0"), bool("False"))   # False True True
+print(bool(0), bool(0.0), bool(-1))         # False False True
+
+name = ""
+if name:
+    print("Hello,", name)
+else:
+    print("No name given")                  # No name given</code></pre>
+
+<h2>Nested conditions</h2>
+<p>An <code>if</code> block may contain another <code>if</code>, indented one more level. Nesting is the direct way to express "only if the first thing is true, check the second". It is also easy to overdo: three levels deep, the reader has to hold three conditions in mind to know what a line does. When two conditions must both hold for the same action, combine them with <code>and</code>, saving a level. When a branch is empty in one case, look for a flat <code>elif</code> chain instead.</p>
+<pre><code>age = 20
+has_ticket = True
+
+if age &gt;= 18:
+    if has_ticket:
+        print("Enter")
+    else:
+        print("Buy a ticket")
+else:
+    print("Too young")
+
+# same decision, one level shallower
+if age &gt;= 18 and has_ticket:
+    print("Enter")
+elif age &gt;= 18:
+    print("Buy a ticket")
+else:
+    print("Too young")</code></pre>
+<p>The flattened version reads top to bottom without a detour. Keep nesting for genuinely different sub-questions, not for conditions that simply apply together.</p>
+
+<h2>A worked example</h2>
+<p>A leap year is a year divisible by 4, except years divisible by 100, unless they are also divisible by 400. That "except" and "unless" map directly onto an ordered <code>elif</code> chain, and the order is what makes it correct: the divisibility by 400 test has to come before the divisibility by 100 test, or the year 2000 would be rejected. Testing <code>year % 4 == 0</code> first would wrongly accept 1900.</p>
+<pre><code>year = int(input("Year: "))
+if year % 400 == 0:
+    leap = True
+elif year % 100 == 0:
+    leap = False
+elif year % 4 == 0:
+    leap = True
+else:
+    leap = False
+
+if leap:
+    print(year, "is a leap year")
+else:
+    print(year, "is a common year")</code></pre>
+<p>Run it with 2024, 1900 and 2000. The program separates the decision from the reporting: one chain computes <code>leap</code>, and a second, simpler <code>if</code> prints. That split is worth copying. It keeps the tricky logic in one readable place and makes the output easy to change.</p>
+<p>Input handling fits naturally here, with one sharp edge: <code>int()</code> raises <code>ValueError</code> when the text is not a whole number, and it raises before any condition is reached. That is a crash, not a wrong answer, so a program that reads numbers should check the text or expect the error. For a yes/no question, <code>answer = input("Continue? ").strip().lower() or "no"</code> makes the empty answer mean no, using <code>or</code>'s short-circuit to supply a default. Then <code>if answer == "yes"</code> decides the branch, and any other text falls through to the same default behaviour.</p>
+
+<div class="callout tip"><b>Tip.</b> When a condition misbehaves, print its parts instead of staring at the whole: print each comparison, then the combined expression. A branch that never runs is usually a condition that is always false for a reason you have not checked yet.</div>
+<div class="callout warn"><b>Watch out.</b> <code>if answer == "yes" or "y":</code> is always true, because <code>"y"</code> is a non-empty string and therefore truthy — the <code>or</code> does not distribute over the comparison. Write <code>if answer == "yes" or answer == "y":</code> so each comparison is explicit.</div>
+
+<div class="practice"><h2>Practice</h2><p>Exercises <b>ex-3-1</b> to <b>ex-3-3</b> on the site.</p></div>
+</section>

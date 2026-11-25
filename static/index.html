@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LearnLoop</title>
+<meta name="theme-color" content="#0a0d12">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header id="topbar">
+  <div class="brand"><span class="dot"></span>LearnLoop<small id="brandsub"></small></div>
+  <select id="coursesel" hidden title="Switch course"></select>
+  <nav id="nav" hidden>
+    <a href="#/plan" data-view="plan">Plan</a>
+    <a href="#/exercises" data-view="exercises">Exercises</a>
+    <a href="#/search" data-view="search">Search</a>
+    <a href="#/admin" data-view="admin" id="navadmin" hidden>Admin</a>
+    <a href="#/settings" data-view="settings" id="navsettings" hidden>Settings</a>
+  </nav>
+  <span class="spacer"></span>
+  <div class="userchip" id="userchip" hidden>
+    <span class="avatar" id="avatar">?</span>
+    <span id="username"></span>
+    <button class="small ghost" id="logout">Sign out</button>
+  </div>
+</header>
+
+<main id="app"><div class="empty"><span class="spin"></span></div></main>
+<div id="toast"></div>
+
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>

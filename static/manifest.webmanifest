@@ -1,0 +1,16 @@
+{
+  "name": "LearnLoop - Build Your Own LLM",
+  "short_name": "LearnLoop",
+  "description": "30-session study plan for Build Your Own LLM, with split PDFs, timer, notes and NAS sync.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0d12",
+  "theme_color": "#0a0d12",
+  "icons": [
+    { "src": "/static/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icon-192.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

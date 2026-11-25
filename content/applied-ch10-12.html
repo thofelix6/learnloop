@@ -1,0 +1,358 @@
+<section class="chapter">
+<h1>Chapter 10 — Turtle Graphics — getting started</h1>
+<p class="lede">Turtle graphics is a drawing robot on a sheet of paper. You steer it with Python: walk, turn, put the pen down. Everything here comes from those few commands, including the five Olympic rings at the end.</p>
+
+<h2>The turtle model</h2>
+<p>Picture a turtle on a canvas with a pen tied to its tail. Three things are under your control: where it is, its heading, and whether the pen touches the paper. Pen down, every step leaves a line; pen up, the turtle moves without drawing.</p>
+<p>The canvas is a normal mathematical plane: the origin (0, 0) is in the middle, x grows right and y grows up. The turtle starts at the centre facing east. A heading is measured in degrees anticlockwise from east: 0 east, 90 north, 180 west, 270 south.</p>
+<pre><code>import turtle
+
+screen = turtle.Screen()
+screen.title("First steps")
+
+t = turtle.Turtle()
+t.forward(100)
+t.right(90)
+t.forward(60)
+
+screen.done()
+</code></pre>
+<p>That draws an L: east, a quarter turn clockwise, then south. <code>right(90)</code> never moves the turtle; it only changes the heading, and the next step follows it.</p>
+
+<h2>Moving and turning</h2>
+<p>Relative commands work from where the turtle stands: <code>forward(d)</code> and <code>backward(d)</code> travel d pixels, while <code>right(a)</code> and <code>left(a)</code> rotate by a degrees without moving. Absolute commands place it somewhere specific: <code>goto(x, y)</code>, <code>setheading(a)</code> and <code>home()</code>. Mixing the two keeps a drawing anchored: one absolute command puts the turtle back on a known point.</p>
+<pre><code>import turtle
+
+screen = turtle.Screen()
+t = turtle.Turtle()
+
+t.forward(120)          # relative: 120 px along the heading
+t.left(90)
+t.forward(60)
+t.goto(0, 0)            # absolute: back to the middle
+t.setheading(45)
+t.forward(140)
+
+screen.done()
+</code></pre>
+<p>Read the drawing as a route on a map: two legs, a jump back to the middle, a diagonal. Every command either moves the animal or turns it.</p>
+
+<h2>Pen up, pen down, and speed</h2>
+<p><code>penup()</code> and <code>pendown()</code> separate drawing from travelling. A dashed line is a loop that alternates between them; a gap in a picture is a stretch with the pen in the air.</p>
+<p><code>pensize(n)</code> sets the line width in pixels, <code>color("navy")</code> sets the colour by name or RGB triple, and <code>speed(n)</code> runs from 1 (a slow crawl) to 0 (as fast as possible). <code>hideturtle()</code> hides the arrow so it does not sit on the finished drawing.</p>
+<pre><code>import turtle
+
+screen = turtle.Screen()
+t = turtle.Turtle()
+t.hideturtle()
+t.speed(0)
+t.pensize(3)
+
+t.penup()
+t.goto(-180, 0)
+t.pendown()
+
+for _ in range(9):
+    t.forward(24)
+    t.penup()
+    t.forward(12)
+    t.pendown()
+
+screen.done()
+</code></pre>
+<p>Speed only spares you the wait. For hundreds of edges, switch off the per-step refresh with <code>screen.tracer(0)</code> and call <code>screen.update()</code> once at the end; without that call the window stays blank.</p>
+
+<h2>Loops that make patterns</h2>
+<p>A turtle pattern is a repeated movement. The key fact is the exterior angle: to walk around a regular polygon with n sides and finish facing the same way, the turtle turns n times by 360/n degrees, because the turns add up to a full circle.</p>
+<pre><code>import turtle
+
+screen = turtle.Screen()
+t = turtle.Turtle()
+t.speed(0)
+
+for sides in (3, 4, 5, 6, 8):
+    for _ in range(sides):
+        t.forward(60)
+        t.left(360 / sides)
+    t.penup()
+    t.forward(110)
+    t.pendown()
+
+screen.done()
+</code></pre>
+<p>The outer loop picks the number of sides, the inner loop draws them. Change the side length and the shapes stop fitting — the point is to see how the side count sets the turn. Try <code>sides = 36</code> and the polygon looks almost like a circle: that is how the turtle draws one itself, with many tiny turns instead of a single smooth arc.</p>
+
+<h2>Functions for reusable drawings</h2>
+<p>A function turns a shape into a command. Pass the turtle in as a parameter so the function works with any turtle, and name parameters after what they mean — <code>sides</code>, <code>size</code>, <code>radius</code>. The <code>size=60</code> default lets a caller leave the size out, and the docstring states what the function promises.</p>
+<pre><code>def polygon(t, sides, size=60):
+    """Draw a regular polygon and finish facing the original heading."""
+    for _ in range(sides):
+        t.forward(size)
+        t.left(360 / sides)
+
+def ring(t, x, y, radius):
+    """Draw a full circle of the given radius, centred on the point (x, y)."""
+    t.penup()
+    t.goto(x, y - radius)
+    t.pendown()
+    t.circle(radius, 360)
+</code></pre>
+<p>The <code>ring</code> function hides a piece of geometry worth understanding. <code>t.circle(r)</code> draws a circle of radius r whose centre is r pixels to the left of the heading. Facing east and starting at the bottom of the ring, (x, y - r), the centre is r pixels north — exactly (x, y). Start anywhere else and the ring circles a point you did not intend.</p>
+<p><code>t.circle(r, 360)</code> is the full arc: the turtle comes back to where it started, facing east. A smaller extent such as <code>t.circle(r, 90)</code> gives a quarter arc, and the heading turns by the extent, because a partial arc does not return the turtle to its starting direction.</p>
+
+<h2>Project: the five Olympic rings</h2>
+<p>Five equal circles, two rows, a thick pen. Three numbers decide the picture: the radius R measured along the middle of the line, the pen width W, and the step between centres. With R = 60 and W = 8 the ink spreads 4 pixels either side of the path, so a ring measures 128 pixels across outside and 112 inside.</p>
+<p>Centres exactly 2R apart would make rings touch. A step of 100 makes each pair overlap by 20, which turns a row into rings rather than coins on a shelf. Rows sit at y = +36 and y = -36, and the lower row shifts right by half a step, 50, so each lower ring falls between two upper ones. A lower centre is then 50 across and 72 down from its neighbour — about 88 pixels, under the 120-pixel diameter, so the rows overlap too.</p>
+<p>Centring is bookkeeping. The top edge is 36 + 60 = 96, the bottom -96; the left edge is -100 - 60 = -160, the right +160, so the drawing is already centred on (0, 0). On an 800 by 600 canvas the range is x from -400 to 400 and y from -300 to 300, leaving 240 pixels of margin at each side and 204 above and below. Change R and recompute the edges, shifting every centre by the same amount. Print those four edges rather than trusting your eye; a margin that looks even is often off by ten pixels.</p>
+<p>Now the pen. After a ring the turtle stands at its bottom, and the next centre may be far away. Pen down, that move drags a straight chord across the picture, so lift the pen before the move and put it down at the new starting point.</p>
+<pre><code>import turtle
+
+R = 60            # radius of each ring, measured on the middle of the line
+W = 8             # pen size: the thickness of the ink
+ROW = 36          # half the vertical distance between the two rows
+STEP = 100        # horizontal distance between neighbouring centres
+
+colours = ("blue", "black", "red", "gold", "green")
+centres = [(-STEP, ROW), (0, ROW), (STEP, ROW),
+           (-STEP / 2, -ROW), (STEP / 2, -ROW)]
+
+screen = turtle.Screen()
+screen.setup(800, 600)
+screen.title("Olympic rings")
+
+t = turtle.Turtle()
+t.speed(0)
+t.pensize(W)
+
+for colour, (x, y) in zip(colours, centres):
+    t.penup()
+    t.goto(x, y - R)
+    t.pendown()
+    t.color(colour)
+    t.circle(R, 360)
+
+screen.done()
+</code></pre>
+<p>The loop pairs each colour with its centre through <code>zip</code>. Draw order matters because each full circle covers the ones before it. The real flag interlaces, each ring passing over one neighbour and under the other; a stack of circles cannot do that, though redrawing short arcs of the under ring afterwards gets close.</p>
+<div class="callout tip"><b>Tip.</b> Run it once, then change one constant at a time: STEP to 120 makes the rings touch, ROW to 50 pulls the rows apart, W to 16 turns them into tyres. One number moving the picture teaches the layout faster than paragraphs do.</div>
+<div class="callout warn"><b>Watch out.</b> A turtle script that ends without <code>screen.done()</code> (or <code>turtle.mainloop()</code>) closes its window the instant it finishes, so you see a flash and nothing else. After <code>screen.tracer(0)</code> the window also stays blank until <code>screen.update()</code>. If your program does nothing, check those two lines first.</div>
+<div class="practice"><h2>Practice</h2><p>Exercises <b>ex-10-1</b> to <b>ex-10-3</b> on the site.</p></div>
+</section>
+
+<section class="chapter">
+<h1>Chapter 11 — Data with NumPy, Pandas and Matplotlib</h1>
+<p class="lede">A column of numbers, a spreadsheet and a bar chart are the same data seen three ways. NumPy holds the numbers, pandas holds the table around them, and Matplotlib draws it. Once you work this way, you stop writing loops over individual values.</p>
+
+<h2>Arrays versus lists</h2>
+<p>A Python list is a container of objects. It is excellent for names, mixed records and anything you append to, but it knows nothing about arithmetic: <code>[1, 2, 3] * 2</code> repeats the list, it does not double the numbers. A NumPy array is one block of numbers of a single type, with a shape. That restriction is the feature. The shape tells you how the data is arranged, the dtype tells you how each value is stored, and operations apply to the whole array at once.</p>
+<p>You already know lists, so the comparison is short. Lists are for collecting; arrays are for calculating.</p>
+<pre><code>import numpy as np
+
+scores = np.array([72, 85, 91, 64, 78])
+print(scores.shape)     # (5,)
+print(scores.dtype)     # int64 on most systems
+
+print(scores + 10)      # [82 95 101 74 88]
+print(scores / scores.max())
+</code></pre>
+<p>Adding 10 to an array adds 10 to every element, with no loop in your code. Something similar happens one dimension up. A two-dimensional array has a shape of (rows, columns), is indexed with a pair of numbers, and can be sliced per axis.</p>
+<pre><code>grid = np.array([[1, 2, 3],
+                 [4, 5, 6]])
+print(grid.shape)    # (2, 3): two rows, three columns
+print(grid[1, 2])    # 6: second row, third column
+print(grid[:, 1])    # [2 5]: the whole second column
+print(grid * 2)      # every element doubled
+</code></pre>
+<p>The syntax <code>grid[:, 1]</code> reads as "every row, column 1". That two-part index is the beginning of everything pandas does with tables.</p>
+
+<h2>Boolean masks</h2>
+<p>Most data questions are of the form "which rows satisfy this condition?". NumPy answers by building a mask: an array of True and False, the same shape as the data. Use the mask inside square brackets and you get only the elements where it is True. This pattern — build a mask, index with it — replaces almost every if-statement you would otherwise write inside a loop.</p>
+<pre><code>import numpy as np
+
+scores = np.array([72, 85, 91, 64, 78])
+passed = scores &gt;= 80
+print(passed)           # [False  True  True False False]
+print(scores[passed])   # [85 91]
+print(scores[passed].mean())
+
+good = (scores &gt;= 70) &amp; (scores &lt; 90)
+print(scores[good])
+</code></pre>
+<p>Combine conditions with <code>&amp;</code>, <code>|</code> and <code>~</code>, not with the words <code>and</code>, <code>or</code> and <code>not</code>, and keep each condition in brackets. The mask itself is data, so you can store it, count it with <code>sum()</code>, or invert it with <code>~</code> when you want the rows that failed.</p>
+
+<h2>A Series and a DataFrame</h2>
+<p>pandas adds labels to NumPy's numbers. A <code>Series</code> is a one-dimensional array with an index — a row of values with a name for each one. A <code>DataFrame</code> is a set of columns that share one index, which is exactly a spreadsheet. Every column is a Series, so anything you learn about a Series applies inside a table.</p>
+<pre><code>import pandas as pd
+
+marks = pd.Series([72, 85, 91], index=["Ana", "Ben", "Cleo"])
+print(marks["Ben"])          # 85
+print(marks.mean())          # 82.666...
+
+table = pd.DataFrame({
+    "name": ["Ana", "Ben", "Cleo", "Dara"],
+    "subject": ["Maths", "Maths", "Art", "Art"],
+    "score": [72, 85, 91, 64],
+})
+print(table.shape)           # (4, 3)
+print(table["score"].mean())
+</code></pre>
+<p>Two habits pay off immediately. Print <code>table.head()</code> and <code>table.dtypes</code> before you trust a table: <code>head()</code> shows real values, and <code>dtypes</code> catches a number column that arrived as text because of a stray comma or currency symbol. If a column of numbers has dtype object, arithmetic on it will fail or silently produce strings.</p>
+
+<h2>Reading a CSV and filtering rows</h2>
+<p>CSV is the format most data arrives in: one header row, then one line per record, values separated by commas. <code>pd.read_csv</code> guesses the types, treats the first row as column names, and turns empty cells into <code>NaN</code>. Write a small file first so the example runs on your own machine.</p>
+<pre><code>import pandas as pd
+
+pd.DataFrame({
+    "name": ["Ana", "Ben", "Cleo", "Dara"],
+    "subject": ["Maths", "Maths", "Art", "Art"],
+    "score": [72, 85, 91, 64],
+}).to_csv("results.csv", index=False)
+
+df = pd.read_csv("results.csv")
+print(df.head())
+print(df.shape)
+print(df.dtypes)
+</code></pre>
+<p>Selecting has two forms. <code>df["score"]</code> gives one column as a Series; <code>df[["name", "score"]]</code> gives a DataFrame with those two columns, because the inner list asks for several. Filtering reuses the boolean-mask idea from NumPy, with the mask built from a column.</p>
+<pre><code>top = df[df["score"] &gt;= 80]
+print(top[["name", "score"]])
+
+print(df.loc[df["name"] == "Ana", "score"])
+</code></pre>
+<p><code>df.loc[rows, columns]</code> is the general form and the one to prefer when a row label matters. Use <code>df["col"]</code> for a plain column and <code>df.loc[...]</code> when you are slicing by label or by condition; the shortcut <code>df.col</code> works too but breaks on column names containing spaces.</p>
+
+<h2>Grouping instead of looping over rows</h2>
+<p>The biggest habit shift in this chapter is this: you very rarely loop over rows. A loop over a DataFrame is slow, easy to get wrong, and almost always expresses a question that pandas already answers. "The average score per subject" is not a loop; it is a split, an apply and a combine, and <code>groupby</code> does all three.</p>
+<pre><code>stats = df.groupby("subject")["score"].agg(["count", "mean", "max"])
+print(stats.round(1))
+</code></pre>
+<p>Read that as: split the rows into groups by subject, take the score column of each group, and aggregate each group with three functions. The result is a small table indexed by subject. The loop version exists, and it is worth seeing once so you recognise it in other people's code — and know why it is the wrong default.</p>
+<pre><code>total = 0
+for _, row in df.iterrows():      # works, but slow and noisy
+    total += row["score"]
+print(total / len(df))
+</code></pre>
+<p>The same answer in one line is <code>df["score"].mean()</code>, and the grouped answer is the <code>groupby</code> call above. Loops still have a place: writing one custom line of text per record, or calling a web service once per row. They are not the tool for arithmetic on columns.</p>
+<div class="callout tip"><b>Tip.</b> When a table confuses you, print three things in this order: <code>df.head()</code>, <code>df.dtypes</code>, <code>df.shape</code>. Most pandas errors are a column name that does not exist, a number stored as text, or an index that does not line up after filtering.</div>
+<div class="callout warn"><b>Watch out.</b> Broadcasting lines up shapes from the right and stretches any dimension that is 1. Adding an array of shape (3,) to one of shape (3, 1) gives a (3, 3) grid of pairwise sums, not three element-wise sums. If a result is suddenly a square table, check the shapes; write <code>b[:, None]</code> or <code>reshape(-1, 1)</code> deliberately, never by accident.</div>
+
+<h2>Plotting with Matplotlib</h2>
+<p>A Matplotlib figure has two parts. The <code>Figure</code> is the page or window; the <code>Axes</code> is the plot area inside it, with its own x and y axes. <code>fig, ax = plt.subplots()</code> creates both, and you draw by calling methods on <code>ax</code> rather than on the module. That object style is what makes a plot reproducible and saveable without a window.</p>
+<p>Labels are not decoration. A chart without an axis label or a title is a puzzle; a legend is required as soon as a plot holds more than one series. Finally, <code>fig.savefig</code> writes the picture to a file, which is what you want in a script, on a server, or in a report.</p>
+<pre><code>import matplotlib.pyplot as plt
+
+stats = df.groupby("subject")["score"].agg(["mean", "max"])
+
+fig, ax = plt.subplots(figsize=(6, 4))
+ax.plot(stats.index, stats["mean"], marker="o", label="mean")
+ax.plot(stats.index, stats["max"], marker="s", label="best")
+ax.set_xlabel("Subject")
+ax.set_ylabel("Score")
+ax.set_title("Scores by subject")
+ax.set_ylim(0, 100)
+ax.legend()
+fig.savefig("scores.png", dpi=150)
+</code></pre>
+<p>Swap <code>ax.plot</code> for <code>ax.bar(stats.index, stats["mean"])</code> and the same data becomes a bar chart — the labels, limits and file output stay identical. A bar chart is the better choice when the x values are categories rather than a continuous quantity; a line implies a progression from left to right.</p>
+<p>One practical detail: on a headless machine there is no window for <code>plt.show()</code> to open, and the default backend may fail. Saving with <code>savefig</code> and then closing the figure works everywhere, and it is the habit that keeps plotting code usable in scripts and notebooks alike.</p>
+<div class="practice"><h2>Practice</h2><p>Exercises <b>ex-11-1</b> to <b>ex-11-3</b> on the site.</p></div>
+</section>
+
+<section class="chapter">
+<h1>Chapter 12 — A First Look at AI: Face Detection and Recognition</h1>
+<p class="lede">Two different questions hide behind the phrase face AI. Detection asks where the faces are in an image; recognition asks who they belong to. Both start from a frame of pixels, which is just an array of numbers.</p>
+
+<h2>An image is an array</h2>
+<p>A photo on disk is compressed data. Once loaded it is a grid of pixels: three numbers per pixel for red, green and blue (OpenCV stores them blue, green, red), each from 0 to 255. That grid is a NumPy array of shape (height, width, 3), so the array skills from the previous chapter carry straight over.</p>
+<p>Coordinates follow the image convention, not the mathematical one: (0, 0) is the top-left pixel, x grows right and y grows down.</p>
+<pre><code>import cv2
+
+image = cv2.imread("photo.jpg")
+print(type(image))      # numpy.ndarray
+print(image.shape)      # (height, width, 3)
+print(image.dtype)      # uint8
+
+print(image[0, 0])      # the BGR value of the top-left pixel
+grey = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+print(grey.shape)       # (height, width): no colour channel
+</code></pre>
+<p>If the path is wrong, <code>cv2.imread</code> returns <code>None</code> instead of raising an error, and the next line fails with a confusing message. Check it: <code>if image is None: raise SystemExit("photo.jpg not found")</code>.</p>
+
+<h2>Detection is not recognition</h2>
+<p>A detector returns boxes. Show it a photograph and it answers with rectangles, each a guess that a face is here — nothing more. It does not know whose face it is, and it does not need to.</p>
+<p>A recogniser returns an identity or a distance. It takes one face, compares it with stored examples, and answers closest to Ana or no match. The usual pipeline is detect, crop, align, encode, compare — and each step can fail on its own.</p>
+
+<h2>How a classic detector scans for faces</h2>
+<p>The classical detector you meet first is the Haar cascade shipped with OpenCV. It works on a greyscale image and slides a small window across it at many positions and sizes, testing simple comparisons inside each window: this rectangle is usually darker than that one, because eyes and brows are darker than cheeks. Any single test is weak, so hundreds are arranged in a cascade — cheap stages reject obvious background first and only promising windows reach the expensive checks.</p>
+<p>The output is a list of boxes, <code>(x, y, w, h)</code>: top-left corner plus size. Overlapping boxes are merged, and <code>minNeighbors</code> decides how many detections must agree before a box survives.</p>
+<pre><code>import cv2
+
+image = cv2.imread("photo.jpg")
+grey = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+cascade = cv2.CascadeClassifier(
+    cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+)
+faces = cascade.detectMultiScale(grey, scaleFactor=1.1, minNeighbors=5)
+
+for (x, y, w, h) in faces:
+    cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+cv2.imwrite("faces.jpg", image)
+print(f"found {len(faces)} face(s)")
+</code></pre>
+<p>The two knobs matter. <code>scaleFactor=1.1</code> grows the search window by ten per cent per pass, trading speed for faces at awkward sizes. <code>minNeighbors=5</code> raises the bar for keeping a box: higher values remove false positives and start missing real faces. The detector is fast on a CPU and good on frontal, well-lit faces; it fails on profiles, occlusion and unusual angles, where a modern neural detector would not.</p>
+
+<h2>Reading frames from a camera</h2>
+<p>A video is a sequence of images, and the same code applies to each one. <code>cv2.VideoCapture</code> opens a camera by index or a file by name, and <code>read()</code> returns a flag plus a frame. When the flag goes false — end of file, camera unplugged — stop.</p>
+<pre><code>import cv2
+
+cap = cv2.VideoCapture(0)          # 0 = first camera; or "clip.mp4"
+cascade = cv2.CascadeClassifier(
+    cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+)
+
+while True:
+    ok, frame = cap.read()
+    if not ok:
+        break
+    grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    for (x, y, w, h) in cascade.detectMultiScale(grey, 1.1, 5):
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+    cv2.imshow("faces", frame)
+    if cv2.waitKey(1) == ord("q"):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
+</code></pre>
+<p>The loop grabs a frame, detects, draws and shows; <code>waitKey(1)</code> pauses briefly and reads the keyboard, q ends it, and the capture is released. Detection runs on the greyscale frame, so colour is discarded before any work happens — these features are mostly arithmetic on brightness patterns.</p>
+
+<h2>Recognisers compare encodings</h2>
+<p>A recogniser does not compare pixels. It pushes an aligned face through a trained network that turns it into a list of numbers — commonly 128 or 512 — called an encoding. Different photographs of one person give encodings close together; different people give encodings far apart.</p>
+<p>Recognition becomes a distance problem: store one encoding per known person, compute the distance to each, take the smallest, and use a threshold to decide whether even that is close enough.</p>
+<pre><code>import numpy as np
+
+def nearest(encoding, gallery, threshold=0.6):
+    """Return the closest name and its distance, or None if nobody is close."""
+    best_name, best_distance = None, float("inf")
+    for name, stored in gallery.items():
+        distance = np.linalg.norm(encoding - stored)
+        if distance &lt; best_distance:
+            best_name, best_distance = name, distance
+    if best_distance &lt; threshold:
+        return best_name, best_distance
+    return None, best_distance
+</code></pre>
+<p>Libraries such as <code>face_recognition</code> supply the encoder and a default threshold; it depends on <code>dlib</code>, which often needs a C++ build toolchain on Windows, so many learners use a prebuilt wheel or a newer library. The threshold is a choice about errors: lower rejects real people, higher accepts strangers. No setting gets both right, which is why the next section matters.</p>
+
+<h2>Ethics, limits, and what you can honestly build</h2>
+<p>Face data is biometric data. It identifies a person, cannot be changed like a password, and can be captured without the person noticing. Consent comes first: people in front of your camera must know what is collected, why, and how to refuse. In the EU, face templates are special-category personal data under the GDPR; China's PIPL treats biometric information as sensitive personal information. A class project that stores photos of classmates is handling data about them, and deleting it afterwards is part of the deal.</p>
+<p>The second limit is bias. Systems learn from datasets, and datasets are not balanced. NIST's 2019 vendor tests found large differences in false-positive rates between demographic groups for many algorithms. A demo that works on the developer's own face proves little about anyone else.</p>
+<p>The third is the false match. A one-in-a-hundred false-positive rate sounds tolerable until you search a thousand people: with a thousand comparisons a false hit is close to certain. A per-comparison error rate is not a per-search error rate, which is why a hit in a large gallery is evidence, not proof. A match is a probability, not a fact — it says two encodings are close, and that can happen for twins, children, poor light, low resolution, or someone the gallery has never seen.</p>
+<p>Behaviour matters too. A photo held up to the camera passes a detector with no liveness check, and a confident-looking box is not a confident model.</p>
+<p>What a beginner can honestly build: a detector that draws boxes and counts faces in a folder of images; a gallery of three or four consenting friends with a stated threshold and a no-match option; a measurement of how often your detector fails on your own test photos. What a beginner cannot build from this chapter: a reliable identification system, a surveillance product, or an accuracy claim from a handful of examples. Say what the system does, say how often it failed on your test set, and never let a probability decide something important about a person.</p>
+<div class="callout tip"><b>Tip.</b> Test on saved images before you touch a camera. Ten photos with known answers give you a failure count you can quote; a live webcam gives you an impression. When you do go live, detect on a downscaled frame and draw the rectangles on the original.</div>
+<div class="callout warn"><b>Watch out.</b> Never run face recognition on people who have not agreed to it, and never store encodings or photos of others just in case. Biometric data is sensitive by law in many places and harmful by design when it leaks: a face cannot be reset. If you cannot say who consented, where the data lives and when it will be deleted, you are not ready to collect it.</div>
+<div class="practice"><h2>Practice</h2><p>Exercises <b>ex-12-1</b> to <b>ex-12-3</b> on the site.</p></div>
+</section>

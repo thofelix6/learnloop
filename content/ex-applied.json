@@ -1,0 +1,298 @@
+[
+  {
+    "slug": "ex-10-1",
+    "chapter": 10,
+    "title": "Olympic ring centres",
+    "prompt": "Write ring_centres(width, height, radius, gap).\n\nYou are laying out the five Olympic rings on a turtle canvas of size width x height. Return the five ring centres in drawing order as a list of (x, y) tuples:\n\n- the top row (three rings) is drawn first, left to right, and is centred horizontally on the canvas;\n- the bottom row (two rings) is the top row shifted right by half a ring spacing, so each bottom ring sits under a gap between two top rings;\n- spacing = 2 * radius + gap is the distance between neighbouring centres in a row, and it is also the vertical distance between the two rows;\n- the three rings together are 6 * radius + 2 * gap wide, so the first top-row x is (width - (6 * radius + 2 * gap)) / 2 + radius;\n- the rows are centred vertically: top row y = height / 2 - spacing / 2, bottom row y = height / 2 + spacing / 2.\n\nExamples:\nring_centres(600, 400, 40, 20) -> [(200, 150), (300, 150), (400, 150), (250, 250), (350, 250)]\nring_centres(1000, 700, 60, 20) -> [(360, 280), (500, 280), (640, 280), (430, 420), (570, 420)]\nring_centres(300, 300, 50, 0) -> [(50, 100), (150, 100), (250, 100), (100, 200), (200, 200)]\n\nEdge cases: gap may be 0, so the rings touch; extra canvas space simply becomes margin. Do not call turtle here - the function only returns numbers, so it can be tested without a window.",
+    "starter": "def ring_centres(width, height, radius, gap):\n    \"\"\"Return the five Olympic ring centres as (x, y) tuples.\"\"\"\n    # TODO: work out the ring spacing, centre the top row,\n    # then shift it right by half a spacing for the bottom row.\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "top row centred, bottom row offset by half a spacing",
+        "code": "_result = ring_centres(600, 400, 40, 20)\n_expected = [(200, 150), (300, 150), (400, 150), (250, 250), (350, 250)]\n_close = [abs(a - c) < 1e-9 and abs(b - d) < 1e-9 for (a, b), (c, d) in zip(_result, _expected)]\nassert len(_result) == 5 and len(_close) == 5 and all(_close)\n"
+      },
+      {
+        "name": "larger canvas with a wider gap",
+        "code": "_result = ring_centres(1000, 700, 60, 20)\n_expected = [(360, 280), (500, 280), (640, 280), (430, 420), (570, 420)]\n_close = [abs(a - c) < 1e-9 and abs(b - d) < 1e-9 for (a, b), (c, d) in zip(_result, _expected)]\nassert len(_result) == 5 and len(_close) == 5 and all(_close)\n"
+      },
+      {
+        "name": "gap of zero makes the rings touch",
+        "code": "_result = ring_centres(300, 300, 50, 0)\n_expected = [(50, 100), (150, 100), (250, 100), (100, 200), (200, 200)]\n_close = [abs(a - c) < 1e-9 and abs(b - d) < 1e-9 for (a, b), (c, d) in zip(_result, _expected)]\nassert len(_result) == 5 and len(_close) == 5 and all(_close)\n"
+      }
+    ],
+    "solution": "def ring_centres(width, height, radius, gap):\n    spacing = 2 * radius + gap\n    block_width = 6 * radius + 2 * gap\n    left = (width - block_width) / 2 + radius\n    top_y = height / 2 - spacing / 2\n    bottom_y = height / 2 + spacing / 2\n    top = [(left + i * spacing, top_y) for i in range(3)]\n    bottom = [(left + spacing / 2 + i * spacing, bottom_y) for i in range(2)]\n    return top + bottom\n",
+    "hints": [
+      "Compute spacing = 2 * radius + gap once and reuse it for both directions.",
+      "The three-ring block is 6 * radius + 2 * gap wide, so left = (width - block_width) / 2 + radius.",
+      "The bottom-row centres are the top-row centres plus spacing / 2, using the first two."
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "slug": "ex-10-2",
+    "chapter": 10,
+    "title": "Pie-slice sweep angle",
+    "prompt": "Write arc_extent(part, whole).\n\nA turtle draws a pie chart by calling turtle.circle(radius, extent) once per slice, where extent is in degrees. You only need the angle: return the sweep of one slice as a float, part / whole * 360.\n\nExamples:\narc_extent(25, 100) -> 90.0\narc_extent(1, 3) -> 120.0\narc_extent(0, 5) -> 0.0\narc_extent(7, 7) -> 360.0\n\nEdge cases: whole must be greater than 0, and part must satisfy 0 <= part <= whole; otherwise raise ValueError. The numbers may be ints or floats (arc_extent(0.5, 2) is 90.0). The function only computes an angle - it never opens a turtle window, so it is testable headless.",
+    "starter": "def arc_extent(part, whole):\n    \"\"\"Return the pie-slice sweep in degrees.\"\"\"\n    # TODO: validate the arguments, then return part / whole * 360.\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "quarter of a pie is 90 degrees",
+        "code": "assert abs(arc_extent(25, 100) - 90.0) < 1e-9\n"
+      },
+      {
+        "name": "a third is 120 degrees",
+        "code": "assert abs(arc_extent(1, 3) - 120.0) < 1e-9\n"
+      },
+      {
+        "name": "zero and full slices are the boundaries",
+        "code": "assert abs(arc_extent(0, 5)) < 1e-12\nassert abs(arc_extent(7, 7) - 360.0) < 1e-9\nassert abs(arc_extent(0.5, 2) - 90.0) < 1e-9\n"
+      },
+      {
+        "name": "invalid inputs raise ValueError",
+        "code": "_raised = 0\nfor _args in [(1, 0), (-1, 4), (5, 4)]:\n    try:\n        arc_extent(*_args)\n    except ValueError:\n        _raised += 1\nassert _raised == 3\n"
+      }
+    ],
+    "solution": "def arc_extent(part, whole):\n    if whole <= 0:\n        raise ValueError(\"whole must be greater than 0\")\n    if part < 0 or part > whole:\n        raise ValueError(\"part must be between 0 and whole\")\n    return part / whole * 360.0\n",
+    "hints": [
+      "A full circle is 360 degrees, so a slice is its fraction of the whole.",
+      "Check whole > 0 and 0 <= part <= whole before dividing.",
+      "Return a float; part / whole * 360.0 is enough."
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "slug": "ex-10-3",
+    "chapter": 10,
+    "title": "Dashed-line pen plan",
+    "prompt": "Write dash_steps(total_length, dash_length, gap_length).\n\nTo draw a dashed line the turtle repeats: pen down and move dash_length, then pen up and move gap_length, until total_length is covered. Return the plan as a list of [distance, pen_down] pairs in order, where pen_down is a bool.\n\nRules:\n- only positive distances appear; a zero-length step is skipped (for example when gap_length is 0);\n- the last dash is cut short so the plan covers exactly total_length;\n- total_length == 0 returns [].\n\nExamples:\ndash_steps(25, 10, 5) -> [[10, True], [5, False], [10, True]]\ndash_steps(31, 10, 5) -> [[10, True], [5, False], [10, True], [5, False], [1, True]]\ndash_steps(12, 20, 5) -> [[12, True]]\ndash_steps(35, 15, 0) -> [[15, True], [15, True], [5, True]]\n\nEdge cases: raise ValueError if total_length < 0, dash_length <= 0, or gap_length < 0. The first dash may already be longer than total_length, in which case it is the only step. The tests read the numbers and booleans only - no turtle window is opened.",
+    "starter": "def dash_steps(total_length, dash_length, gap_length):\n    \"\"\"Return [[distance, pen_down], ...] for a dashed line.\"\"\"\n    # TODO: loop while length remains, cutting the last dash short.\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "dash/gap alternates and ends on the exact total",
+        "code": "_steps = [(d, p) for d, p in dash_steps(25, 10, 5)]\nassert _steps == [(10, True), (5, False), (10, True)]\n"
+      },
+      {
+        "name": "ending dash is truncated to the remaining length",
+        "code": "_steps = [(d, p) for d, p in dash_steps(31, 10, 5)]\nassert _steps == [(10, True), (5, False), (10, True), (5, False), (1, True)]\n"
+      },
+      {
+        "name": "a single short dash when the dash is longer than the line",
+        "code": "_steps = [(d, p) for d, p in dash_steps(12, 20, 5)]\nassert _steps == [(12, True)]\n"
+      },
+      {
+        "name": "zero gap gives touching dashes",
+        "code": "_steps = [(d, p) for d, p in dash_steps(35, 15, 0)]\nassert _steps == [(15, True), (15, True), (5, True)]\n"
+      },
+      {
+        "name": "zero length and invalid arguments",
+        "code": "assert [(d, p) for d, p in dash_steps(0, 10, 5)] == []\n_raised = 0\nfor _args in [(-1, 10, 5), (10, 0, 5), (10, 10, -1)]:\n    try:\n        dash_steps(*_args)\n    except ValueError:\n        _raised += 1\nassert _raised == 3\n"
+      }
+    ],
+    "solution": "def dash_steps(total_length, dash_length, gap_length):\n    if total_length < 0:\n        raise ValueError(\"total_length must not be negative\")\n    if dash_length <= 0:\n        raise ValueError(\"dash_length must be positive\")\n    if gap_length < 0:\n        raise ValueError(\"gap_length must not be negative\")\n    steps = []\n    remaining = total_length\n    while remaining > 0:\n        dash = min(dash_length, remaining)\n        steps.append([dash, True])\n        remaining -= dash\n        if remaining <= 0:\n            break\n        gap = min(gap_length, remaining)\n        if gap > 0:\n            steps.append([gap, False])\n            remaining -= gap\n    return steps\n",
+    "hints": [
+      "Keep a remaining counter and alternate a dash and a gap until it reaches zero.",
+      "Each step is min(requested_length, remaining), which is what cuts the final dash short.",
+      "Skip the gap when gap_length is 0 or when nothing remains."
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "slug": "ex-11-1",
+    "chapter": 11,
+    "title": "One-hot encode class labels",
+    "prompt": "Write one_hot(labels, num_classes).\n\nlabels is a list of integer class labels and num_classes is the number of categories. Return a NumPy array with shape (len(labels), num_classes) that holds a 1 in the label's column and 0 everywhere else.\n\nExamples:\none_hot([0, 2, 1], 3) -> array([[1, 0, 0],\n                              [0, 0, 1],\n                              [0, 1, 0]])\none_hot([1], 2) -> array([[0, 1]])\none_hot([], 3) -> array with shape (0, 3)\n\nEdge cases: an empty labels list still returns shape (0, num_classes); num_classes must be at least 1 and every label must be in range 0 .. num_classes - 1, otherwise raise ValueError. The tests compare values, so an int or a float dtype both pass.",
+    "starter": "import numpy as np\n\n\ndef one_hot(labels, num_classes):\n    \"\"\"Return a (len(labels), num_classes) one-hot array.\"\"\"\n    # TODO: validate, build the zeros array, set one 1 per row.\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "labels map to the matching columns",
+        "code": "import numpy as np\nassert np.array_equal(one_hot([0, 2, 1], 3), np.array([[1, 0, 0], [0, 0, 1], [0, 1, 0]]))\n"
+      },
+      {
+        "name": "a single label returns one row",
+        "code": "import numpy as np\nassert np.array_equal(one_hot([1], 2), np.array([[0, 1]]))\n"
+      },
+      {
+        "name": "empty labels keep the class dimension",
+        "code": "import numpy as np\n_empty = one_hot([], 3)\nassert np.shape(_empty) == (0, 3) and np.size(_empty) == 0\n"
+      },
+      {
+        "name": "out-of-range labels and num_classes raise ValueError",
+        "code": "import numpy as np\n_raised = 0\nfor _labels, _classes in [([3], 3), ([-1], 3), ([0], 0)]:\n    try:\n        one_hot(_labels, _classes)\n    except ValueError:\n        _raised += 1\nassert _raised == 3\n"
+      }
+    ],
+    "solution": "import numpy as np\n\n\ndef one_hot(labels, num_classes):\n    if num_classes < 1:\n        raise ValueError(\"num_classes must be at least 1\")\n    labels = list(labels)\n    for label in labels:\n        if not 0 <= label < num_classes:\n            raise ValueError(\"label out of range\")\n    out = np.zeros((len(labels), num_classes), dtype=int)\n    for row, label in enumerate(labels):\n        out[row, label] = 1\n    return out\n",
+    "hints": [
+      "Start from np.zeros((len(labels), num_classes), dtype=int).",
+      "out[row, label] = 1 fills each row, and the shape handles the empty case too.",
+      "Validate the labels before allocating anything, so bad input raises ValueError."
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "slug": "ex-11-2",
+    "chapter": 11,
+    "title": "Monthly totals ready to plot",
+    "prompt": "Write monthly_totals(csv_text).\n\ncsv_text is the text of a CSV file with a header and at least the columns date and amount; dates are ISO strings such as \"2026-01-05\". Group the rows by calendar month, sum amount within each month, and return a tuple (months, totals):\n- months is a list of \"YYYY-MM\" strings sorted oldest first;\n- totals is a list of the monthly sums as floats, aligned with months.\n\nThis is the data-preparation step behind a bar chart (plt.bar(months, totals)); nothing is rendered, and no file is read from disk - the CSV arrives as a string.\n\nExamples:\nmonthly_totals(\"date,amount\\n2026-01-05,10\\n2026-01-20,5\\n2026-02-02,7\\n\") -> ([\"2026-01\", \"2026-02\"], [15.0, 7.0])\nmonthly_totals(\"date,amount\\n2026-03-01,1.5\\n2026-01-01,2.5\\n\") -> ([\"2026-01\", \"2026-03\"], [2.5, 1.5])\n\nEdge cases: rows may be out of order, so sort by month; months with no rows never appear; extra columns are ignored; a header-only CSV returns ([], []).",
+    "starter": "import io\nimport pandas as pd\n\n\ndef monthly_totals(csv_text):\n    \"\"\"Return (months, totals) grouped and summed by calendar month.\"\"\"\n    # TODO: read the CSV from a string, derive the month key,\n    # group by it, sum amount, and sort by month.\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "two months summed and sorted",
+        "code": "_months, _totals = monthly_totals(\"date,amount\\n2026-01-05,10\\n2026-01-20,5\\n2026-02-02,7\\n\")\nassert list(_months) == [\"2026-01\", \"2026-02\"] and len(_totals) == 2\nassert abs(_totals[0] - 15.0) < 1e-9 and abs(_totals[1] - 7.0) < 1e-9\n"
+      },
+      {
+        "name": "unsorted rows with an extra column",
+        "code": "_months, _totals = monthly_totals(\"date,amount,note\\n2026-03-01,1.5,x\\n2026-01-01,2.5,y\\n2026-01-15,1.0,z\\n\")\nassert list(_months) == [\"2026-01\", \"2026-03\"] and len(_totals) == 2\nassert abs(_totals[0] - 3.5) < 1e-9 and abs(_totals[1] - 1.5) < 1e-9\n"
+      },
+      {
+        "name": "header-only CSV returns two empty lists",
+        "code": "_months, _totals = monthly_totals(\"date,amount\\n\")\nassert list(_months) == [] and list(_totals) == []\n"
+      }
+    ],
+    "solution": "import io\nimport pandas as pd\n\n\ndef monthly_totals(csv_text):\n    frame = pd.read_csv(io.StringIO(csv_text))\n    if frame.empty:\n        return ([], [])\n    months = pd.to_datetime(frame[\"date\"]).dt.strftime(\"%Y-%m\")\n    grouped = frame.assign(month=months).groupby(\"month\")[\"amount\"].sum().sort_index()\n    return (list(grouped.index), [float(value) for value in grouped.tolist()])\n",
+    "hints": [
+      "pd.read_csv(io.StringIO(csv_text)) parses the text without touching the disk.",
+      "pd.to_datetime(frame[\"date\"]).dt.strftime(\"%Y-%m\") gives the month key.",
+      "groupby(\"month\")[\"amount\"].sum() then sort_index() gives sorted totals aligned with the month index."
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "slug": "ex-11-3",
+    "chapter": 11,
+    "title": "NaN-aware moving average",
+    "prompt": "Write moving_average(values, window).\n\nvalues is a sequence of numbers that may contain float('nan') for missing readings. Return a NumPy array of floats with the same length as values where element i is the mean of the non-NaN values in the window that ends at i and is at most window long:\n- for i < window - 1 the window is shorter and starts at index 0, so the first values use everything seen so far;\n- NaN entries are ignored, not counted as zero;\n- if a window holds no non-NaN value the result is nan.\n\nExamples:\nmoving_average([1, 2, 3, 4, 5], 3) -> [1.0, 1.5, 2.0, 3.0, 4.0]\nmoving_average([1, float('nan'), 3], 2) -> [1.0, 1.0, 3.0]\nmoving_average([float('nan'), float('nan')], 2) -> [nan, nan]\n\nEdge cases: raise ValueError if window < 1 or window > len(values) (so an empty values list always raises); window == len(values) is allowed and the last element is then the mean of every non-NaN value. Tests compare with np.allclose, so values simply have to be numerically right.",
+    "starter": "import math\n\nimport numpy as np\n\n\ndef moving_average(values, window):\n    \"\"\"Return a NaN-aware causal mean with a window of at most window.\"\"\"\n    # TODO: for each index, average the non-NaN values in the trailing window.\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "means over a full window",
+        "code": "import numpy as np\nassert np.allclose(moving_average([1, 2, 3, 4, 5], 3), [1.0, 1.5, 2.0, 3.0, 4.0])\n"
+      },
+      {
+        "name": "NaN is ignored rather than counted as zero",
+        "code": "import numpy as np\n_result = moving_average([1, float(\"nan\"), 3], 2)\n_close = np.allclose(_result, [1.0, 1.0, 3.0], equal_nan=True)\nassert _close\n"
+      },
+      {
+        "name": "an all-NaN window produces NaN",
+        "code": "import numpy as np\n_result = moving_average([float(\"nan\"), float(\"nan\")], 2)\nassert len(_result) == 2 and all(np.isnan(value) for value in _result)\n"
+      },
+      {
+        "name": "window equal to the length is allowed",
+        "code": "import numpy as np\nassert np.allclose(moving_average([2, 4, 6], 3), [2.0, 3.0, 4.0])\n"
+      },
+      {
+        "name": "invalid windows raise ValueError",
+        "code": "import numpy as np\n_raised = 0\nfor _args in [([1, 2, 3], 0), ([1, 2, 3], 4), ([], 1)]:\n    try:\n        moving_average(*_args)\n    except ValueError:\n        _raised += 1\nassert _raised == 3\n"
+      }
+    ],
+    "solution": "import math\n\nimport numpy as np\n\n\ndef moving_average(values, window):\n    data = [float(value) for value in values]\n    if window < 1 or window > len(data):\n        raise ValueError(\"window must be between 1 and len(values)\")\n    out = np.empty(len(data), dtype=float)\n    for i in range(len(data)):\n        start = max(0, i - window + 1)\n        chunk = [value for value in data[start:i + 1] if not math.isnan(value)]\n        out[i] = sum(chunk) / len(chunk) if chunk else float(\"nan\")\n    return out\n",
+    "hints": [
+      "For index i the window starts at max(0, i - window + 1), which also covers the short first windows.",
+      "Filter the window with math.isnan so missing readings are ignored instead of divided in.",
+      "Allocate one float array of len(values) and assign a mean per index."
+    ],
+    "difficulty": "hard"
+  },
+  {
+    "slug": "ex-12-1",
+    "chapter": 12,
+    "title": "Scale detector boxes",
+    "prompt": "Write scale_boxes(boxes, factor).\n\nboxes is a list of (x1, y1, x2, y2) tuples produced by a face detector that ran on a resized frame. Return a new list of (x1, y1, x2, y2) tuples with every coordinate multiplied by factor, so the boxes match the original frame.\n\nThis is the arithmetic the detector wrapper uses to undo its own resize - the nuts and bolts behind the call, with no model file or image involved.\n\nExamples:\nscale_boxes([(10, 20, 30, 40)], 2) -> [(20.0, 40.0, 60.0, 80.0)]\nscale_boxes([(0, 0, 100, 50)], 0.5) -> [(0.0, 0.0, 50.0, 25.0)]\nscale_boxes([], 2) -> []\n\nEdge cases: an empty list returns an empty list; factor must be greater than 0, otherwise raise ValueError; the input list and its tuples must not be modified.",
+    "starter": "def scale_boxes(boxes, factor):\n    \"\"\"Return [(x1, y1, x2, y2), ...] scaled by factor.\"\"\"\n    # TODO: validate factor, then multiply all four coordinates.\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "scaling up by an integer factor",
+        "code": "_out = scale_boxes([(10, 20, 30, 40)], 2)\nassert len(_out) == 1 and all(abs(a - b) < 1e-9 for a, b in zip(_out[0], (20, 40, 60, 80)))\n"
+      },
+      {
+        "name": "scaling down by a fraction",
+        "code": "_out = scale_boxes([(0, 0, 100, 50)], 0.5)\nassert len(_out) == 1 and all(abs(a - b) < 1e-9 for a, b in zip(_out[0], (0, 0, 50, 25)))\n"
+      },
+      {
+        "name": "several boxes keep their order and the input is untouched",
+        "code": "_boxes = [(1, 2, 3, 4), (5, 6, 7, 8)]\n_copy = list(_boxes)\n_out = scale_boxes(_boxes, 3)\nassert _boxes == _copy and len(_out) == 2\nassert all(abs(a - b) < 1e-9 for a, b in zip(_out[0], (3, 6, 9, 12)))\nassert all(abs(a - b) < 1e-9 for a, b in zip(_out[1], (15, 18, 21, 24)))\nassert scale_boxes([], 5) == []\n"
+      },
+      {
+        "name": "non-positive factor raises ValueError",
+        "code": "_raised = 0\nfor _factor in [0, -1]:\n    try:\n        scale_boxes([(1, 2, 3, 4)], _factor)\n    except ValueError:\n        _raised += 1\nassert _raised == 2\n"
+      }
+    ],
+    "solution": "def scale_boxes(boxes, factor):\n    if factor <= 0:\n        raise ValueError(\"factor must be greater than 0\")\n    return [\n        (x1 * factor, y1 * factor, x2 * factor, y2 * factor)\n        for x1, y1, x2, y2 in boxes\n    ]\n",
+    "hints": [
+      "A list comprehension that unpacks x1, y1, x2, y2 keeps the input list untouched.",
+      "Check factor <= 0 first and raise ValueError.",
+      "Multiplying ints by a float gives floats, which is the return type asked for."
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "slug": "ex-12-2",
+    "chapter": 12,
+    "title": "Intersection over union",
+    "prompt": "Write iou(box1, box2).\n\nEach box is an (x1, y1, x2, y2) tuple of pixel coordinates with x2 > x1 and y2 > y1. Return the intersection-over-union of the two rectangles as a float between 0.0 and 1.0: the area of the overlap divided by the area of the union.\n\nIoU is how the detector decides that two boxes describe the same face, and how a recogniser compares two crops; this is that calculation on plain tuples, with no model file involved.\n\nExamples:\niou((0, 0, 10, 10), (0, 0, 10, 10)) -> 1.0\niou((0, 0, 10, 10), (5, 0, 15, 10)) -> 0.3333333... (overlap 50, union 150)\niou((0, 0, 10, 10), (20, 20, 30, 30)) -> 0.0\niou((0, 0, 10, 10), (10, 0, 20, 10)) -> 0.0 (the boxes only touch)\n\nEdge cases: boxes that only touch or do not overlap return 0.0; a box inside another gives overlap / larger area (iou((0, 0, 10, 10), (2, 2, 4, 4)) is 0.04); degenerate zero-area boxes must not raise ZeroDivisionError - return 0.0 when the union area is 0.",
+    "starter": "def iou(box1, box2):\n    \"\"\"Return the intersection-over-union of two (x1, y1, x2, y2) boxes.\"\"\"\n    # TODO: clip the overlap rectangle, then divide it by the union area.\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "a box against itself is 1.0",
+        "code": "assert abs(iou((0, 0, 10, 10), (0, 0, 10, 10)) - 1.0) < 1e-12\n"
+      },
+      {
+        "name": "half-overlapping boxes give one third",
+        "code": "assert abs(iou((0, 0, 10, 10), (5, 0, 15, 10)) - 1.0 / 3.0) < 1e-9\n"
+      },
+      {
+        "name": "disjoint and merely touching boxes give 0.0",
+        "code": "assert abs(iou((0, 0, 10, 10), (20, 20, 30, 30))) < 1e-12\nassert abs(iou((0, 0, 10, 10), (10, 0, 20, 10))) < 1e-12\n"
+      },
+      {
+        "name": "a nested box gives overlap over the larger area",
+        "code": "assert abs(iou((0, 0, 10, 10), (2, 2, 4, 4)) - 0.04) < 1e-9\n"
+      },
+      {
+        "name": "zero-area boxes do not divide by zero",
+        "code": "assert abs(iou((5, 5, 5, 5), (5, 5, 5, 5))) < 1e-12\nassert abs(iou((5, 5, 5, 5), (0, 0, 10, 10))) < 1e-12\n"
+      }
+    ],
+    "solution": "def iou(box1, box2):\n    left = max(box1[0], box2[0])\n    top = max(box1[1], box2[1])\n    right = min(box1[2], box2[2])\n    bottom = min(box1[3], box2[3])\n    overlap_width = max(0.0, right - left)\n    overlap_height = max(0.0, bottom - top)\n    overlap = overlap_width * overlap_height\n    area1 = max(0.0, box1[2] - box1[0]) * max(0.0, box1[3] - box1[1])\n    area2 = max(0.0, box2[2] - box2[0]) * max(0.0, box2[3] - box2[1])\n    union = area1 + area2 - overlap\n    if union <= 0:\n        return 0.0\n    return overlap / union\n",
+    "hints": [
+      "The overlap rectangle runs from max(x1) / max(y1) to min(x2) / min(y2).",
+      "Clamp negative widths and heights to 0 so touching or disjoint boxes give no overlap.",
+      "Union is area1 + area2 - overlap; return 0.0 when that union is 0."
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "slug": "ex-12-3",
+    "chapter": 12,
+    "title": "Pick the best face match",
+    "prompt": "Write pick_best_match(encodings, target, threshold).\n\nencodings is a list of known face encodings (tuples of floats, all the same length), target is the encoding of the face you just detected, and threshold is the largest distance that still counts as a match. Measure Euclidean (L2) distance and return the index of the closest candidate when that distance is <= threshold, otherwise None.\n\nThis is the decision the recogniser makes after comparing an unknown face against the faces it has already seen; no model file or camera is involved.\n\nExamples:\npick_best_match([(0.0, 0.0), (1.0, 0.0)], (0.9, 0.0), 0.2) -> 1\npick_best_match([(0.0, 0.0), (1.0, 0.0)], (5.0, 0.0), 0.2) -> None\npick_best_match([(0.0, 0.0)], (0.0, 0.0), 0.0) -> 0\npick_best_match([(0.0, 0.0), (2.0, 0.0)], (1.0, 0.0), 1.0) -> 0 (a tie at exactly the threshold matches, and the lower index wins)\n\nEdge cases: an empty encodings list returns None; the threshold is inclusive; exact ties go to the lower index; if len(target) differs from a candidate's length raise ValueError.",
+    "starter": "import math\n\n\ndef pick_best_match(encodings, target, threshold):\n    \"\"\"Return the index of the closest encoding within threshold, or None.\"\"\"\n    # TODO: measure the L2 distance to each candidate and keep the smallest.\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "closest candidate under the threshold",
+        "code": "assert pick_best_match([(0.0, 0.0), (1.0, 0.0)], (0.9, 0.0), 0.2) == 1\n"
+      },
+      {
+        "name": "nothing within the threshold returns None",
+        "code": "assert pick_best_match([(0.0, 0.0), (1.0, 0.0)], (5.0, 0.0), 0.2) is None\n"
+      },
+      {
+        "name": "threshold is inclusive and ties keep the lower index",
+        "code": "assert pick_best_match([(0.0, 0.0)], (0.0, 0.0), 0.0) == 0\nassert pick_best_match([(0.0, 0.0), (2.0, 0.0)], (1.0, 0.0), 1.0) == 0\n"
+      },
+      {
+        "name": "empty candidate list returns None",
+        "code": "assert pick_best_match([], (0.0, 0.0), 100.0) is None\n"
+      },
+      {
+        "name": "mismatched encoding lengths raise ValueError",
+        "code": "_raised = 0\nfor _target in [(0.0, 0.0, 0.0)]:\n    try:\n        pick_best_match([(0.0, 0.0)], _target, 1.0)\n    except ValueError:\n        _raised += 1\nassert _raised == 1\n"
+      }
+    ],
+    "solution": "import math\n\n\ndef pick_best_match(encodings, target, threshold):\n    if not encodings:\n        return None\n    best_index = None\n    best_distance = None\n    for index, candidate in enumerate(encodings):\n        if len(candidate) != len(target):\n            raise ValueError(\"encoding length mismatch\")\n        distance = math.sqrt(sum((a - b) ** 2 for a, b in zip(candidate, target)))\n        if best_distance is None or distance < best_distance:\n            best_distance = distance\n            best_index = index\n    if best_distance <= threshold:\n        return best_index\n    return None\n",
+    "hints": [
+      "Closest means the smallest sum of squared differences, so compare squares and take the square root once.",
+      "Keep both the best distance and its index, updating only on a strictly smaller distance so ties keep the lower index.",
+      "The comparison with the threshold happens after the loop: best_distance <= threshold is the inclusive test."
+    ],
+    "difficulty": "hard"
+  }
+]

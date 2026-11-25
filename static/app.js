@@ -1,0 +1,1238 @@
+// LearnLoop front-end: multi-course plan + auto-graded exercises. No build step.
+const S = {
+  user: null, plan: null, courses: [], course: null, exercises: null,
+  view: null, session: null, timer: null,
+};
+
+/* ------------------------------------------------------------------ helpers */
+const $ = (sel, root = document) => root.querySelector(sel);
+const app = () => $('#app');
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* Warm the cache for a session's text/audio/notes before it is opened. */
+const _prefetched = new Set();
+function prefetchSession(n) {
+  n = Number(n);
+  if (!n || !S.course) return;
+  const key = S.course + ':' + n;
+  if (_prefetched.has(key)) return;
+  _prefetched.add(key);
+  const c = 'course=' + encodeURIComponent(S.course);
+  const opts = { credentials: 'include', headers: { 'X-LearnLoop': '1' } };
+  if (S.course === 'build-llm') fetch(`/api/reader?${c}&session=${n}`, opts).catch(() => {});
+  fetch(`/api/lecture?${c}&session=${n}`, opts).catch(() => {});
+  fetch(`/api/notes?${c}&session=${n}`, opts).catch(() => {});
+}
+
+/* After a correct answer: offer the next exercise, then pull it up on its own. */
+async function nextExerciseSlug(slug) {
+  try {
+    if (!S._exOrder) {
+      const r = await api('/api/exercises' + q());
+      S._exOrder = (r.exercises || []).map(x => x.slug);
+    }
+    const i = S._exOrder.indexOf(slug);
+    return i >= 0 && i + 1 < S._exOrder.length ? S._exOrder[i + 1] : null;
+  } catch (e) { return null; }
+}
+
+function autoAdvance(slug, hostSelector) {
+  nextExerciseSlug(slug).then((nxt) => {
+    if (!nxt) return;
+    const host = $(hostSelector);
+    if (!host) return;
+    const btn = document.createElement('button');
+    btn.className = 'primary small';
+    btn.style.marginTop = '10px';
+    btn.textContent = 'Next exercise →';
+    btn.onclick = () => { location.hash = '#/exercise/' + nxt; };
+    host.appendChild(btn);
+  });
+}
+
+async function api(path, { method = 'GET', body = null } = {}) {
+  const opts = { method, credentials: 'same-origin', headers: {} };
+  if (method !== 'GET') { opts.headers['X-LearnLoop'] = '1'; opts.headers['Content-Type'] = 'application/json'; }
+  if (body !== null) opts.body = JSON.stringify(body);
+  const res = await fetch(path, opts);
+  const ct = res.headers.get('content-type') || '';
+  const data = ct.includes('json') ? await res.json() : await res.text();
+  if (!res.ok) throw new Error((data && data.detail) || res.statusText || ('HTTP ' + res.status));
+  return data;
+}
+
+let toastTimer = null;
+function toast(msg, isErr = false) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = 'show' + (isErr ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, isErr ? 6000 : 3200);
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  return new Date(iso + 'T00:00:00').toLocaleDateString(undefined,
+    { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+const q = () => S.course ? '?course=' + encodeURIComponent(S.course) : '';
+
+/* ------------------------------------------------------- python highlighting */
+const PY_KEYWORDS = new Set(('False None True and as assert async await break class continue def del '
+  + 'elif else except finally for from global if import in is lambda nonlocal not or pass raise '
+  + 'return try while with yield match case').split(' '));
+
+const PY_BUILTINS = new Set(('abs all any ascii bin bool bytearray bytes callable chr classmethod compile '
+  + 'complex delattr dict dir divmod enumerate eval exec filter float format frozenset getattr globals '
+  + 'hasattr hash help hex id input int isinstance issubclass iter len list locals map max memoryview min '
+  + 'next object oct open ord pow print property range repr reversed round set setattr slice sorted '
+  + 'staticmethod str sum super tuple type vars zip __name__').split(' '));
+
+const escHtml = (s) => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+// strings first (so a # inside a string is not a comment), then comments, numbers, words
+const TOKEN_RE = new RegExp([
+  String.raw`(?:[rbufRBUF]{0,2})(?:"""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')`,
+  String.raw`#[^\n]*`,
+  String.raw`\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b`,
+  String.raw`\b[A-Za-z_]\w*\b`,
+].join('|'), 'g');
+
+function highlightPython(code) {
+  let out = '', last = 0, m;
+  TOKEN_RE.lastIndex = 0;
+  while ((m = TOKEN_RE.exec(code)) !== null) {
+    out += escHtml(code.slice(last, m.index));
+    const tok = m[0];
+    let cls = '';
+    if (/^[rbufRBUF]{0,2}("""|'''|"|')/.test(tok)) cls = 'c-str';
+    else if (tok[0] === '#') cls = 'c-com';
+    else if (/^\d/.test(tok)) cls = 'c-num';
+    else if (PY_KEYWORDS.has(tok)) cls = 'c-kw';
+    else if (PY_BUILTINS.has(tok)) cls = 'c-bi';
+    out += cls ? `<span class="${cls}">${escHtml(tok)}</span>` : escHtml(tok);
+    last = m.index + tok.length;
+  }
+  out += escHtml(code.slice(last));
+  return out + '\n';                 // keeps the last line's height equal to the textarea's
+}
+
+
+/* -------------------------------------------------------------------- shell */
+function paintChrome() {
+  const nav = $('#nav'), chip = $('#userchip'), sel = $('#coursesel');
+  if (!S.user) {
+    nav.hidden = true; chip.hidden = true; sel.hidden = true;
+    $('#brandsub').textContent = ''; return;
+  }
+  document.body.classList.remove('auth-view');
+  nav.hidden = false; chip.hidden = false;
+  $('#username').innerHTML = esc(S.user.username)
+    + (S.user.role === 'admin' ? ' <span class="badge admin">admin</span>' : '');
+  $('#avatar').textContent = (S.user.username || '?').slice(0, 1).toUpperCase();
+  $('#navadmin').hidden = S.user.role !== 'admin';
+  $('#navsettings').hidden = S.user.role !== 'admin';
+
+  if (S.courses.length > 1) {
+    sel.hidden = false;
+    if (sel.dataset.built !== S.courses.map(c => c.slug).join(',')) {
+      sel.innerHTML = S.courses.map(c =>
+        `<option value="${esc(c.slug)}">${esc(c.title)}</option>`).join('');
+      sel.dataset.built = S.courses.map(c => c.slug).join(',');
+    }
+    sel.value = S.course;
+  } else {
+    sel.hidden = true;
+  }
+  const cur = S.courses.find(c => c.slug === S.course);
+  $('#brandsub').textContent = cur ? '· ' + cur.title : '';
+  document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('active', a.dataset.view === S.view));
+}
+
+async function loadCourses() {
+  const r = await api('/api/courses');
+  S.courses = r.courses || [];
+  const saved = localStorage.getItem('ll-course');
+  S.course = (saved && S.courses.some(c => c.slug === saved)) ? saved
+    : (S.courses[0] ? S.courses[0].slug : null);
+}
+
+async function switchCourse(slug) {
+  if (!slug || slug === S.course) return;
+  S.course = slug;
+  localStorage.setItem('ll-course', slug);
+  S.plan = null; S.exercises = null; S._exOrder = null;
+  await refreshPlan();
+  paintChrome();
+  route();
+}
+
+async function refreshPlan() {
+  S.plan = await api('/api/plan' + q());
+  return S.plan;
+}
+
+/* --------------------------------------------------------------------- auth */
+function renderSetup() {
+  S.view = 'setup'; paintChrome(); document.body.classList.add('auth-view');
+  app().innerHTML = `
+  <div class="auth-wrap"><div class="card">
+    <div class="brand" style="margin-bottom:14px"><span class="dot"></span>LearnLoop</div>
+    <h1>First run</h1>
+    <p class="muted small">No accounts exist yet. Create the administrator — this account approves everyone else.</p>
+    <label>Admin username</label><input id="u" autocomplete="username" placeholder="e.g. seeker">
+    <label>Email (optional)</label><input id="e" type="email" autocomplete="email">
+    <label>Password (8+ characters)</label><input id="p" type="password" autocomplete="new-password">
+    <div style="height:16px"></div>
+    <button class="primary" id="go" style="width:100%">Create admin account</button>
+  </div></div>`;
+  $('#go').onclick = async () => {
+    try {
+      await api('/api/setup', { method: 'POST', body: { username: $('#u').value.trim(), email: $('#e').value.trim(), password: $('#p').value } });
+      await login($('#u').value.trim(), $('#p').value);
+    } catch (err) { toast(err.message, true); }
+  };
+}
+
+function renderAuth(mode = 'login') {
+  S.view = mode; paintChrome(); document.body.classList.add('auth-view');
+  const isLogin = mode === 'login';
+  app().innerHTML = `
+  <div class="auth-wrap"><div class="card">
+    <div class="brand" style="margin-bottom:14px"><span class="dot"></span>LearnLoop</div>
+    <h1>${isLogin ? 'Sign in' : 'Request an account'}</h1>
+    <p class="muted small">${isLogin
+      ? 'Your study plans, PDFs and auto-graded exercises.'
+      : 'New accounts need an administrator to approve them before they can sign in.'}</p>
+    <label>Username</label><input id="u" autocomplete="username">
+    ${isLogin ? '' : '<label>Email (optional)</label><input id="e" type="email" autocomplete="email">'}
+    <label>Password</label><input id="p" type="password" autocomplete="${isLogin ? 'current-password' : 'new-password'}">
+    <div style="height:16px"></div>
+    <button class="primary" id="go" style="width:100%">${isLogin ? 'Sign in' : 'Create account'}</button>
+    <div style="height:10px"></div>
+    <button class="ghost" id="swap" style="width:100%">${isLogin ? 'Need an account? Request one' : 'Already approved? Sign in'}</button>
+  </div></div>`;
+  $('#swap').onclick = () => renderAuth(isLogin ? 'signup' : 'login');
+  $('#go').onclick = async () => {
+    const u = $('#u').value.trim(), p = $('#p').value;
+    if (!isLogin) {
+      try {
+        const r = await api('/api/signup', { method: 'POST', body: { username: u, email: $('#e').value.trim(), password: p } });
+        app().innerHTML = `<div class="auth-wrap"><div class="card"><h1>Request sent</h1>
+          <p class="muted">${esc(r.message)}</p><p class="small dim">Username: <b>${esc(u)}</b></p>
+          <button id="back" style="width:100%">Back to sign in</button></div></div>`;
+        $('#back').onclick = () => renderAuth('login');
+      } catch (err) { toast(err.message, true); }
+      return;
+    }
+    await login(u, p);
+  };
+}
+
+async function login(username, password) {
+  try {
+    const r = await api('/api/login', { method: 'POST', body: { username, password } });
+    S.user = r.user;
+    await loadCourses();
+    await refreshPlan();
+    paintChrome();
+    location.hash = '#/plan';
+    route();
+    toast(`Welcome back, ${S.user.username}`);
+  } catch (err) { toast(err.message, true); }
+}
+
+/* ---------------------------------------------------------------------- plan */
+function sessionCard(s, todayN) {
+  const cls = ['sess'];
+  if (s.done) cls.push('done');
+  if (s.n === todayN) cls.push('today');
+  return `<div class="${cls.join(' ')}" data-n="${s.n}">
+    <span class="n">S${String(s.n).padStart(2, '0')}</span>
+    <div class="blk">${esc(s.block)}</div>
+    <div class="meta">${esc(fmtDate(s.date))} · ${s.minutes} min · p${esc(s.pages)}</div>
+    <div class="marks">
+      ${s.done ? '<span class="tag ok">done</span>' : ''}
+      ${s.has_file ? '<span class="tag">pdf</span>' : '<span class="tag">no pdf</span>'}
+      ${(s.exercise_slugs || []).length ? `<span class="tag">${s.exercises_passed}/${s.exercise_slugs.length} ex</span>` : ''}
+      ${s.notes ? `<span class="tag">${s.notes} note${s.notes > 1 ? 's' : ''}</span>` : ''}
+    </div>
+  </div>`;
+}
+
+function renderPlan() {
+  S.view = 'plan'; paintChrome();
+  const p = S.plan;
+  if (!p) { app().innerHTML = '<div class="empty">No plan loaded.</div>'; return; }
+  const next = p.sessions.find(s => !s.done);
+  const weeks = {};
+  p.sessions.forEach(s => { (weeks[s.week] ||= []).push(s); });
+
+  const hero = next ? `
+    <section class="card hero">
+      <div>
+        <div class="kicker">${esc(p.course.title)} · next up</div>
+        <h1>Session ${next.n} of ${p.count} — ${esc(next.block)}</h1>
+        <p>${esc(next.what)}</p>
+        <div class="row" style="margin-bottom:14px">
+          <span class="pill">${next.minutes} min</span>
+          ${next.pages ? `<span class="pill">pages ${esc(next.pages)}</span>` : ''}
+          <span class="pill amber">week ${next.week}</span>
+          ${p.exercise_total ? `<span class="pill green">${p.exercise_passed}/${p.exercise_total} exercises passing</span>` : ''}
+        </div>
+        <div class="small muted" style="margin-bottom:14px"><b style="color:var(--text)">Deliverable:</b> ${esc(next.deliverable)}</div>
+        <div class="row">
+          <button class="primary" id="open">Open session</button>
+          <button id="markdone">Mark done</button>
+          ${(next.exercise_slugs || []).length ? '<button id="toex">Exercises for this chapter</button>' : ''}
+        </div>
+      </div>
+      <div class="stat card" style="box-shadow:none">
+        <div class="dim small">Progress</div>
+        <div class="big">${p.done_count}<span class="dim" style="font-size:18px"> / ${p.count}</span></div>
+        <div class="bar"><i style="width:${p.percent}%"></i></div>
+        <div class="small muted">${p.percent}% · ${Math.round((p.total_minutes - p.minutes_done) / 60)} h left</div>
+      </div>
+    </section>` : `
+    <section class="card hero">
+      <div><div class="kicker">${esc(p.course.title)}</div><h1>All ${p.count} sessions done</h1>
+      <p>Nothing left in this course.</p></div>
+      <div class="stat card" style="box-shadow:none"><div class="big">100%</div><div class="bar"><i style="width:100%"></i></div></div>
+    </section>`;
+
+  const groups = Object.keys(weeks).sort((a, b) => a - b).map(w => `
+    <div class="week-group">
+      <div class="week-head"><h3>Week ${w}</h3>
+      <span class="dim small">${weeks[w].length} sessions · ${weeks[w].reduce((a, s) => a + s.minutes, 0)} min</span></div>
+      <div class="sessions">${weeks[w].map(s => sessionCard(s, next && next.n)).join('')}</div>
+    </div>`).join('');
+
+  app().innerHTML = `<div class="coursetitle"><h2>${esc(p.course.title)}</h2>
+      <span class="muted small">${esc(p.course.subtitle || '')}</span></div>` + hero + `
+    <div class="row" style="margin-top:22px">
+      ${S.user.role === 'admin' ? `<button id="split">Split the guide into session PDFs</button>
+      <button id="syncall">Upload all PDFs to the NAS</button>` : ''}
+      <span class="dim small">${p.sessions.filter(s => s.has_file).length} of ${p.count} session PDFs ready</span>
+    </div>` + groups;
+
+  document.querySelectorAll('.sess').forEach(el => {
+    el.onclick = () => { location.hash = '#/session/' + el.dataset.n; };
+    el.onmouseenter = () => prefetchSession(el.dataset.n);
+  });
+  if (next) {
+    prefetchSession(next.n);
+    $('#open').onclick = () => { location.hash = '#/session/' + next.n; };
+    $('#markdone').onclick = () => markDone(next.n, true, renderPlan);
+    if ($('#toex')) $('#toex').onclick = () => { location.hash = '#/exercises'; };
+  }
+  if (S.user.role === 'admin' && $('#split')) {
+    $('#split').onclick = async (e) => {
+      e.target.disabled = true; e.target.innerHTML = '<span class="spin"></span> splitting…';
+      try {
+        const r = await api('/api/split' + q(), { method: 'POST' });
+        toast(`Wrote ${r.written.length} PDFs (${r.skipped.length} already there)`);
+        await refreshPlan(); renderPlan();
+      } catch (err) { toast(err.message, true); e.target.disabled = false; e.target.textContent = 'Split the guide into session PDFs'; }
+    };
+    $('#syncall').onclick = (e) => uploadAll(e.target);
+  }
+}
+
+/* Which chapter a session's block belongs to (mirrors the server mapping). */
+function chapterOfBlock(block) {
+  const b = String(block || '');
+  let m = b.match(/\bChapter\s+(\d+)/i) || b.match(/\bCh\s+(\d+)/i);
+  if (m) return Number(m[1]);
+  m = b.match(/\bLab\s+(\d+)/i);
+  if (m) return 100 + Number(m[1]);
+  return null;
+}
+
+async function chapterIsComplete(chapter) {
+  try {
+    const r = await api('/api/exercises' + q());
+    const list = (r.exercises || []).filter(x => x.chapter === chapter);
+    return list.length > 0 && list.every(x => x.passed);
+  } catch (e) { return false; }
+}
+
+/* All exercises of a chapter are done: mark the owning session done, open the next one. */
+async function finishChapter(chapter) {
+  const sessions = (S.plan && S.plan.sessions) || [];
+  const owning = sessions.filter(s => chapterOfBlock(s.block) === chapter);
+  if (!owning.length) return false;
+  const owner = owning[owning.length - 1].n;
+  try {
+    await api('/api/progress', { method: 'POST', body: { course: S.course, session: owner, done: true } });
+  } catch (e) { /* the card already said done; keep moving */ }
+  await refreshPlan();
+  toast('That part is finished — moving to the next session');
+  const next = sessions.find(s => s.n === owner + 1);
+  location.hash = next ? '#/session/' + next.n : '#/plan';
+  return true;
+}
+
+async function markDone(n, done, after) {
+  try {
+    const r = await api('/api/progress', { method: 'POST', body: { course: S.course, session: n, done } });
+    if (r.warning) toast(r.warning, true); else toast(done ? `Session ${n} marked done` : `Session ${n} reopened`);
+    await refreshPlan();
+    if (done) {
+      // finishing a part should take you straight to its exercise, or to the next part
+      const nx = await api('/api/next-exercise?course=' + encodeURIComponent(S.course) + '&session=' + n).catch(() => null);
+      if (nx && nx.slug) { location.hash = '#/exercise/' + nx.slug; return; }
+      const sessions = (S.plan && S.plan.sessions) || [];
+      const next = sessions.find(s => s.n === n + 1);
+      location.hash = next ? '#/session/' + next.n : '#/plan';
+      return;
+    }
+    (after || renderPlan)();
+  } catch (err) { toast(err.message, true); }
+}
+
+/* ------------------------------------------------------------------ session */
+function ensureTimer() {
+  if (!S.timer) S.timer = { id: null, remaining: 0, total: 0, running: false, elapsed: 0, n: null, logged: 0 };
+  return S.timer;
+}
+function clearTimer() {
+  const t = ensureTimer();
+  if (t.id) clearInterval(t.id);
+  t.id = null; t.running = false;
+}
+const fmtClock = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+
+function timerTick() {
+  const t = ensureTimer();
+  if (!t.running) return;
+  t.remaining -= 1; t.elapsed += 1;
+  const clock = $('#clock');
+  if (clock) { clock.textContent = fmtClock(Math.max(0, t.remaining)); clock.classList.toggle('low', t.remaining <= 60); }
+  if (t.remaining <= 0) {
+    t.running = false; clearInterval(t.id); t.id = null;
+    logSpent(true);
+    toast('Session time is up — save your notes');
+  }
+}
+
+async function logSpent(finished) {
+  const t = ensureTimer();
+  const mins = Math.floor((t.elapsed - t.logged) / 60);
+  if (mins <= 0 || !t.n) return 0;
+  t.logged += mins * 60;
+  try {
+    const r = await api('/api/timer', { method: 'POST', body: { course: S.course, session: t.n, minutes: mins } });
+    if (finished) toast(`Logged ${mins} min (${r.minutes_spent} total)`);
+    return r.minutes_spent;
+  } catch (err) { toast(err.message, true); return 0; }
+}
+
+function openVideo(url, title) {
+  const old = document.querySelector('.videomodal');
+  if (old) old.remove();
+  const wrap = document.createElement('div');
+  wrap.className = 'videomodal';
+  wrap.innerHTML = `<div class="videobox">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <b>${esc(title || 'Lesson video')}</b>
+      <button class="ghost small" id="vclose">Close</button>
+    </div>
+    <video id="vplayer" src="${esc(url)}" controls autoplay playsinline></video>
+  </div>`;
+  document.body.appendChild(wrap);
+  $('#vclose').onclick = () => wrap.remove();
+  wrap.onclick = (e) => { if (e.target === wrap) wrap.remove(); };
+}
+
+async function openPlayer(info, n) {
+  const old = $('#player'); if (old) old.remove();
+  const side = $('.side'); if (!side) return;
+  const key = `ll-lecture-${S.user.id}-${S.course}-${n}`;
+  const card = document.createElement('div');
+  card.className = 'card player'; card.id = 'player';
+  card.innerHTML = `
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <h3 style="margin:0">🎧 Lecture</h3>
+      <span class="dim small" id="plect">${esc(info.title || '')}</span>
+    </div>
+    <audio id="paudio" preload="metadata" src="${esc(info.url)}"></audio>
+    <div class="row" style="margin-top:12px;gap:10px;align-items:center">
+      <button class="primary small" id="pplay">▶ Play</button>
+      <input type="range" id="pseek" min="0" max="100" step="0.5" value="0" style="flex:1">
+      <span class="small" id="ptime">0:00</span>
+    </div>
+    <div class="row" style="margin-top:10px;justify-content:space-between;align-items:center">
+      <label class="small" style="display:flex;gap:6px;align-items:center;margin:0">speed
+        <select id="pspeed">
+          ${[0.75,1,1.25,1.5,1.75,2].map(v => `<option value="${v}"${v===1?' selected':''}>${v}×</option>`).join('')}
+        </select>
+      </label>
+      <span class="dim small" id="pdur">${info.minutes ? '~' + info.minutes + ' min' : ''}</span>
+    </div>`;
+  side.insertBefore(card, side.firstChild);
+
+  const a = $('#paudio'), play = $('#pplay'), seek = $('#pseek'), time = $('#ptime');
+  const fmt = (s) => fmtClock(Math.floor(s || 0));
+  const save = () => { try { localStorage.setItem(key, String(a.currentTime)); } catch (e) {} };
+  const restore = () => {
+    let v = 0; try { v = parseFloat(localStorage.getItem(key) || '0'); } catch (e) {}
+    if (v > 5 && (!a.duration || v < a.duration - 5)) a.currentTime = v;
+  };
+  a.addEventListener('loadedmetadata', () => { seek.max = a.duration || 100; restore(); });
+  a.addEventListener('timeupdate', () => {
+    seek.value = a.currentTime;
+    time.textContent = `${fmt(a.currentTime)} / ${fmt(a.duration)}`;
+    if (a.currentTime > 0 && Math.floor(a.currentTime) % 5 === 0) save();
+  });
+  a.addEventListener('play', () => { play.textContent = '❚❚ Pause'; });
+  a.addEventListener('pause', () => { play.textContent = '▶ Play'; save(); });
+  a.addEventListener('ended', () => {
+    play.textContent = '▶ Play';
+    try { localStorage.removeItem(key); } catch (e) {}
+  });
+  play.onclick = () => { if (a.paused) { a.play().catch(() => {}); } else { a.pause(); } };
+  seek.oninput = () => { a.currentTime = Number(seek.value); };
+  $('#pspeed').onchange = (e) => { a.playbackRate = Number(e.target.value); };
+  a.playbackRate = 1;
+  a.play().catch(() => {});
+}
+
+async function renderSession(n) {
+  S.view = 'session'; paintChrome();
+  n = Number(n);
+  if (!S.plan) await refreshPlan();
+  const s = S.plan.sessions.find(x => x.n === n);
+  if (!s) { app().innerHTML = '<div class="empty">No such session.</div>'; return; }
+  S.session = s;
+  clearTimer();
+  const t = ensureTimer();
+  t.n = n; t.total = s.minutes * 60; t.remaining = s.minutes * 60; t.elapsed = 0; t.logged = 0; t.running = false;
+
+  app().innerHTML = `
+  <div class="row" style="margin-bottom:16px">
+    <button class="ghost small" id="back">← Plan</button>
+    <span class="dim small">Session ${n} of ${S.plan.count} · ${esc(fmtDate(s.date))} · week ${s.week}</span>
+  </div>
+  <div class="reader">
+    <div class="pdfpane">
+      <div class="pdfbar">
+        <span>S${String(n).padStart(2, '0')} · ${esc(s.block)}</span>
+        <span style="flex:1"></span>
+        <span>pages ${esc(s.pages)}</span>
+        <button class="ghost small" id="watch" title="Narrated lesson video">▶ Watch</button>
+        <button class="ghost small" id="listen" title="Narrated audio of this chapter">🎧 Listen</button>
+        <a href="/api/pdf/${n}${q()}" target="_blank" class="small">open in tab</a>
+      </div>
+      <div id="pdfhost"></div>
+    </div>
+    <div class="side">
+      <div class="card">
+        <h3>What to do</h3><p class="small" style="margin:8px 0 0">${esc(s.what)}</p>
+        <div style="height:12px"></div><h3>Deliverable</h3>
+        <p class="small" style="margin:8px 0 0;color:#dbe6f2">${esc(s.deliverable)}</p>
+      </div>
+      <div class="card">
+        <h3>Timer</h3>
+        <div class="timer" style="margin-top:10px">
+          <div class="clock" id="clock">${fmtClock(s.minutes * 60)}</div>
+          <div class="row"><button class="primary small" id="tstart">Start</button><button class="small" id="treset">Reset</button></div>
+        </div>
+        <div class="small dim" style="margin-top:8px">Planned ${s.minutes} min · tracked ${s.minutes_spent} min</div>
+      </div>
+      <div class="card">
+        <h3>Notes</h3>
+        <textarea id="note" placeholder="What clicked? What is still fuzzy? Paste the deliverable here."></textarea>
+        <div class="row" style="margin-top:10px;justify-content:space-between">
+          <label class="small" style="margin:0;display:flex;gap:7px;align-items:center">
+            <input type="checkbox" id="deliv" style="width:auto"> deliverable done</label>
+          <button class="primary small" id="savenote">Save to vault</button>
+        </div>
+        <div id="notelist" style="margin-top:6px"></div>
+      </div>
+      <div class="card">
+        <h3>Progress${S.user.role === 'admin' ? ' &amp; sync' : ''}</h3>
+        <div class="row" style="margin-top:10px">
+          <button class="small ${s.done ? '' : 'primary'}" id="toggle">${s.done ? 'Reopen session' : 'Mark done'}</button>
+          ${S.user.role === 'admin' ? '<button class="small" id="nasup">Upload PDF to NAS</button>' : ''}
+        </div>
+        <div class="small dim" id="nasmsg" style="margin-top:8px"></div>
+      </div>
+    </div>
+  </div>`;
+
+  $('#back').onclick = () => { location.hash = '#/plan'; };
+  $('#listen').onclick = async () => {
+    try {
+      const r = await api(`/api/lecture?course=${encodeURIComponent(S.course)}&session=${n}`);
+      if (!r.available) { toast(r.reason || 'No audio for this chapter yet', true); return; }
+      openPlayer(r, n);
+    } catch (e) { toast(e.message || 'Could not load the lecture', true); }
+  };
+
+  $('#watch').onclick = async () => {
+    try {
+      const r = await api(`/api/video?course=${encodeURIComponent(S.course)}&session=${n}`);
+      if (!r.available) { toast(r.reason || 'No video for this session yet', true); return; }
+      openVideo(r.url, s.block);
+    } catch (e) { toast(e.message || 'Could not load the video', true); }
+  };
+  $('#tstart').onclick = () => {
+    const t2 = ensureTimer();
+    if (t2.running) { t2.running = false; clearInterval(t2.id); t2.id = null; $('#tstart').textContent = 'Resume'; logSpent(false); return; }
+    t2.running = true; t2.id = setInterval(timerTick, 1000); $('#tstart').textContent = 'Pause';
+  };
+  $('#treset').onclick = () => {
+    const t2 = ensureTimer(); clearTimer();
+    t2.remaining = t2.total; t2.elapsed = 0; t2.logged = 0;
+    $('#clock').textContent = fmtClock(t2.total); $('#tstart').textContent = 'Start';
+  };
+  $('#toggle').onclick = () => markDone(n, !S.session.done, () => renderSession(n));
+  $('#savenote').onclick = async () => {
+    const body = $('#note').value.trim();
+    if (!body) { toast('Nothing to save', true); return; }
+    try {
+      const r = await api('/api/notes', { method: 'POST', body: { course: S.course, session: n, body, deliverable_done: $('#deliv').checked, minutes_spent: s.minutes_spent } });
+      toast(r.warning || 'Saved to the vault');
+      $('#note').value = '';
+      await loadNotes(n);
+      await refreshPlan();
+    } catch (err) { toast(err.message, true); }
+  };
+  if ($('#nasup')) $('#nasup').onclick = async (e) => {
+    e.target.disabled = true; e.target.innerHTML = '<span class="spin"></span> uploading';
+    try {
+      const r = await api('/api/nas/upload', { method: 'POST', body: { session: n, target: 'lan', course: S.course } });
+      if (r.uploaded && r.uploaded.length) { $('#nasmsg').textContent = `Uploaded ${r.uploaded[0]}`; toast('Uploaded to the NAS'); }
+      else { $('#nasmsg').textContent = r.message; toast(r.message, true); }
+    } catch (err) { $('#nasmsg').textContent = err.message; toast(err.message, true); }
+    e.target.disabled = false; e.target.textContent = 'Upload PDF to NAS';
+  };
+
+  if (S.course === 'build-llm') renderTextReader(n); else renderPdf(n);
+  loadNotes(n);
+}
+
+async function renderTextReader(n) {
+  const host = $('#pdfhost');
+  if (!host) return;
+  host.innerHTML = '<div class="empty"><span class="spin"></span> loading text…</div>';
+  try {
+    const r = await api('/api/reader?course=' + encodeURIComponent(S.course) + '&session=' + n);
+    let html = '', inUl = false;
+    for (const b of (r.blocks || [])) {
+      if (b.t === 'li') {
+        if (!inUl) { html += '<ul>'; inUl = true; }
+        html += `<li>${esc(b.text)}</li>`;
+        continue;
+      }
+      if (inUl) { html += '</ul>'; inUl = false; }
+      if (b.t === 'h1') html += `<h1>${esc(b.text)}</h1>`;
+      else if (b.t === 'h2') html += `<h2>${esc(b.text)}</h2>`;
+      else if (b.t === 'quote') html += `<blockquote>${esc(b.text)}</blockquote>`;
+      else if (b.t === 'pre') html += `<pre>${esc(b.text)}</pre>`;
+      else html += `<p>${esc(b.text)}</p>`;
+    }
+    if (inUl) html += '</ul>';
+    host.innerHTML = `<article class="reader-text">${html}</article>`;
+  } catch (err) {
+    host.innerHTML = `<div class="empty">Could not load the text (${esc(err.message)}).<br>
+      <a href="/api/pdf/${n}${q()}" target="_blank">Open the PDF instead</a></div>`;
+  }
+}
+
+async function loadNotes(n) {
+  try {
+    const r = await api('/api/notes?session=' + n + (S.course ? '&course=' + encodeURIComponent(S.course) : ''));
+    const host = $('#notelist');
+    if (!host) return;
+    host.innerHTML = r.notes.length
+      ? r.notes.map(x => `<div class="note"><span class="when">${new Date(x.created_at).toLocaleString()}${x.vault_path ? ' · vault' : ''}</span>${esc(x.body)}</div>`).join('')
+      : '<div class="small dim" style="margin-top:10px">No notes yet.</div>';
+  } catch { /* ignore */ }
+}
+
+async function renderPdf(n) {
+  const host = $('#pdfhost');
+  if (!host) return;
+  host.innerHTML = '<div class="empty"><span class="spin"></span> loading PDF…</div>';
+  try {
+    const pdfjs = await import('/static/vendor/pdfjs/pdf.min.mjs');
+    pdfjs.GlobalWorkerOptions.workerSrc = '/static/vendor/pdfjs/pdf.worker.min.mjs';
+    const doc = await pdfjs.getDocument({ url: '/api/pdf/' + n + q(), withCredentials: true }).promise;
+    host.innerHTML = '';
+    const target = Math.max(320, (host.clientWidth || 700) - 24);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    for (let p = 1; p <= doc.numPages; p++) {
+      const page = await doc.getPage(p);
+      const base = page.getViewport({ scale: 1 });
+      const scale = (target / base.width) * dpr;
+      const vp = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      canvas.style.width = '100%'; canvas.height = Math.floor(vp.height); canvas.width = Math.floor(vp.width);
+      host.appendChild(canvas);
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+    }
+  } catch (err) {
+    host.innerHTML = `<div class="empty">Could not render with pdf.js (${esc(err.message)}).<br>
+      <a href="/api/pdf/${n}${q()}" target="_blank">Open the PDF in a new tab</a></div>`;
+  }
+}
+
+/* ----------------------------------------------------------------- exercises */
+async function renderExercises() {
+  S.view = 'exercises'; paintChrome();
+  app().innerHTML = '<div class="empty"><span class="spin"></span></div>';
+  try {
+    const r = await api('/api/exercises' + q());
+    S.exercises = r;
+    if (!r.exercises.length) {
+      app().innerHTML = '<div class="empty">No exercises in this course yet.</div>';
+      return;
+    }
+    const byChapter = {};
+    r.exercises.forEach(e => { (byChapter[e.chapter] ||= []).push(e); });
+    const blocks = Object.keys(byChapter).sort((a, b) => a - b).map(ch => `
+      <div class="exchapter">
+        <div class="week-head"><h3>${Number(ch) >= 100 ? 'Lab ' + (ch - 100) : 'Chapter ' + ch}</h3>
+        <span class="dim small">${byChapter[ch].filter(e => e.passed).length}/${byChapter[ch].length} done</span></div>
+        <div class="exlist">${byChapter[ch].map(e => `
+          <a class="exitem ${e.passed ? 'passed' : ''}" href="#/exercise/${encodeURIComponent(e.slug)}">
+            <span class="exname">${esc(e.title)}</span>
+            <span class="exmeta">${e.kind === 'answer'
+              ? 'written · reveal the answer'
+              : e.kind === 'mcq'
+                ? 'multiple choice · 4 options'
+                : `${esc(e.difficulty)} · ${e.tests} test${e.tests === 1 ? '' : 's'}`}${e.attempts ? ' · ' + e.attempts + ' try' + (e.attempts === 1 ? '' : 'ies') : ''}</span>
+            <span class="exstate">${e.passed ? '✓' : ''}</span>
+          </a>`).join('')}</div>
+      </div>`).join('');
+
+    app().innerHTML = `
+      <div class="row" style="margin-bottom:6px">
+        <h2 style="margin:0">Exercises</h2>
+        <span class="pill ${r.passed === r.total ? 'green' : ''}">${r.passed} / ${r.total} passing</span>
+      </div>
+      <p class="muted small">Chapter questions are multiple choice — pick an answer and get told why. Lab exercises are graded on the server: your code runs against hidden tests and you get a result per test.</p>
+      ${blocks}`;
+  } catch (err) {
+    app().innerHTML = `<div class="empty">${esc(err.message)}</div>`;
+  }
+}
+
+async function renderExercise(slug) {
+  S.view = 'exercise'; paintChrome();
+  app().innerHTML = '<div class="empty"><span class="spin"></span></div>';
+  let ex;
+  try { ex = await api('/api/exercise/' + encodeURIComponent(slug)); }
+  catch (err) { app().innerHTML = `<div class="empty">${esc(err.message)}</div>`; return; }
+
+  // an exercise opened by URL may belong to a different course: follow it
+  if (ex.course_id && S.courses.length) {
+    const owner = S.courses.find(c => c.id === ex.course_id);
+    if (owner && owner.slug !== S.course) {
+      S.course = owner.slug;
+      localStorage.setItem('ll-course', owner.slug);
+      try { await refreshPlan(); } catch { /* keep going */ }
+      paintChrome();
+    }
+  }
+
+  // Drafts belong to an account, not to a browser. Keying them by slug alone meant the
+  // next person to sign in on the same machine was shown the previous user's code.
+  const uid = (S.user && S.user.id != null) ? S.user.id : 'anon';
+  const draftKey = `ll-draft-${uid}-${slug}`;
+  localStorage.removeItem('ll-draft-' + slug);      // drop the old shared-key drafts
+  const draft = localStorage.getItem(draftKey);
+  const code = draft || ex.starter || '';
+
+  const isAnswer = (ex.kind || 'code') === 'answer';
+  const isMcq = (ex.kind || 'code') === 'mcq';
+  const chapterLabel = ex.chapter >= 100 ? `Lab ${ex.chapter - 100}` : `Chapter ${ex.chapter}`;
+
+  app().innerHTML = `
+  <div class="row" style="margin-bottom:14px">
+    <button class="ghost small" id="back">← Exercises</button>
+    <span class="dim small">${chapterLabel} · ${esc(ex.difficulty)}</span>
+    <span style="flex:1"></span>
+    ${isAnswer || isMcq ? '' : '<button class="small" id="hints">Hints</button>'}
+  </div>
+  <div class="exwrap">
+    <div class="card exprompt">
+      <h1 style="font-size:20px">${esc(ex.title)}</h1>
+      <pre class="prompttext">${esc(ex.prompt)}</pre>
+      <div id="hintbox" hidden>
+        <h3>Hints</h3>
+        <ul class="small">${(ex.hints || []).map(h => `<li>${esc(h)}</li>`).join('') || '<li>No hints.</li>'}</ul>
+      </div>
+      ${isAnswer || isMcq ? '' : `<h3 style="margin-top:16px">Tests that will run</h3>
+      <ul class="small dim">${(ex.tests || []).map(t => `<li>${esc(t.name)}</li>`).join('')}</ul>`}
+    </div>
+    ${isMcq ? `
+    <div class="card">
+      <h3>Choose one</h3>
+      <div id="choices" class="choices" style="margin-top:10px"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" id="check">Check answer</button>
+        <span class="small dim" id="mcqstate"></span>
+      </div>
+      <div id="results" style="margin-top:12px"></div>
+      <div id="explain" hidden style="margin-top:14px">
+        <h3>Why</h3>
+        <p class="small" style="color:#dbe6f2;margin-top:6px"></p>
+      </div>
+    </div>` : isAnswer ? `
+    <div class="card">
+      <h3>Your turn</h3>
+      <p class="small muted" style="margin-top:6px">Work it out on paper or in a note first — reading an answer you did not try teaches you nothing. Then compare.</p>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" id="reveal">Reveal the answer</button>
+        <button class="small" id="done">Mark as done</button>
+      </div>
+      <div id="answerbox" hidden style="margin-top:14px">
+        <h3>The book's answer</h3>
+        <pre class="prompttext" style="color:#dbe6f2">${esc(ex.answer || 'No answer recorded.')}</pre>
+      </div>
+      <div id="results" style="margin-top:12px"></div>
+    </div>` : `
+    <div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:8px">
+        <h3 style="margin:0">Your code</h3>
+        <span class="small dim" id="draftstate"></span>
+      </div>
+      <div class="editor" id="editorbox">
+        <pre class="hl" id="hl" aria-hidden="true"><code id="hlcode"></code></pre>
+        <textarea id="code" class="codearea" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off"></textarea>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="primary" id="run">Run tests</button>
+        <button class="small" id="reset">Reset to starter</button>
+        <span class="small dim" id="runsize"></span>
+        <span class="small dim" style="margin-left:auto">Tab indents · Shift+Tab dedents · Ctrl+Enter runs</span>
+      </div>
+      <div id="results" style="margin-top:14px"></div>
+    </div>`}
+  </div>`;
+
+  if (isAnswer) {
+    $('#back').onclick = () => { location.hash = '#/exercises'; };
+    $('#reveal').onclick = () => {
+      const box = $('#answerbox');
+      box.hidden = !box.hidden;
+      $('#reveal').textContent = box.hidden ? 'Reveal the answer' : 'Hide the answer';
+    };
+    $('#done').onclick = async (e) => {
+      e.target.disabled = true; e.target.innerHTML = '<span class="spin"></span> saving';
+      try {
+        await api('/api/exercise/' + encodeURIComponent(slug) + '/done', { method: 'POST', body: {} });
+        toast('Marked as done');
+        await loadCourses(); paintChrome();
+        $('#results').innerHTML = '<div class="result good">Done — counted in your progress.</div>';
+      } catch (err) { toast(err.message, true); }
+      e.target.disabled = false; e.target.textContent = 'Mark as done';
+    };
+    return;
+  }
+
+  if (isMcq) {
+    $('#back').onclick = () => { location.hash = '#/exercises'; };
+    const box = $('#choices');
+    box.innerHTML = (ex.options || []).map((o, i) => `
+      <label class="choice"><input type="radio" name="mcq" value="${i}"><span>${esc(o)}</span></label>`).join('');
+
+    if (ex.answered) {
+      const pick = box.querySelector(`input[name="mcq"][value="${Number(ex.choice)}"]`);
+      if (pick) pick.checked = true;
+      box.querySelectorAll('input[name="mcq"]').forEach(i => { i.disabled = true; });
+      box.querySelectorAll('label.choice').forEach(l => l.classList.add('locked'));
+      const check = $('#check');
+      check.disabled = true;
+      check.textContent = '✓ Correct';
+      const explain = $('#explain');
+      explain.hidden = false;
+      explain.querySelector('p').textContent = ex.explanation || '';
+      $('#results').innerHTML = '<div class="result good">Already answered correctly — this exercise is done.</div>';
+      autoAdvance(slug, '#results');
+      return;
+    }
+
+    $('#check').onclick = async (e) => {
+      const sel = box.querySelector('input[name="mcq"]:checked');
+      if (!sel) { toast('Pick one option first', true); return; }
+      e.target.disabled = true; e.target.innerHTML = '<span class="spin"></span> checking';
+      try {
+        const r = await api('/api/exercise/' + encodeURIComponent(slug) + '/check',
+                            { method: 'POST', body: { choice: Number(sel.value) } });
+        if (r.correct) {
+          box.querySelectorAll('input[name="mcq"]').forEach(i => { i.disabled = true; });
+          box.querySelectorAll('label.choice').forEach(l => { l.classList.add('locked'); });
+          e.target.textContent = '✓ Correct';
+          const explain = $('#explain');
+          explain.hidden = false;
+          explain.querySelector('p').textContent = r.explanation || '';
+          $('#results').innerHTML = '<div class="result good">Correct — counted in your progress.</div>';
+          toast('Correct');
+          if (await chapterIsComplete(ex.chapter)) await finishChapter(ex.chapter);
+          else autoAdvance(slug, '#results');
+        } else {
+          $('#results').innerHTML = '<div class="result bad">Not quite — think again, then check another option.</div>';
+          e.target.disabled = false; e.target.textContent = 'Check answer';
+        }
+      } catch (err) {
+        toast(err.message, true);
+        e.target.disabled = false; e.target.textContent = 'Check answer';
+      }
+    };
+    return;
+  }
+
+  const ta = $('#code');
+  const hlPre = $('#hl');
+  const hlCode = $('#hlcode');
+  ta.value = code;
+  const paint = () => {
+    hlCode.innerHTML = highlightPython(ta.value);
+    hlPre.scrollTop = ta.scrollTop;
+    hlPre.scrollLeft = ta.scrollLeft;
+  };
+  paint();
+  ta.addEventListener('scroll', () => { hlPre.scrollTop = ta.scrollTop; hlPre.scrollLeft = ta.scrollLeft; });
+  const saveDraft = () => {
+    localStorage.setItem(draftKey, ta.value);
+    $('#draftstate').textContent = 'draft saved';
+  };
+  const updateSize = () => { $('#runsize').textContent = `${ta.value.length} chars`; };
+
+  const INDENT = '    ';
+  const INDENT_WIDTH = INDENT.length;
+
+  function reindent(outdent) {
+    const v = ta.value;
+    const s = ta.selectionStart, e = ta.selectionEnd;
+    const ls = v.lastIndexOf('\n', s - 1) + 1;
+    let le = v.indexOf('\n', e);
+    if (le === -1) le = v.length;
+    const block = v.slice(ls, le);
+    const lines = block.split('\n');
+
+    if (s === e) {
+      // no selection: Tab inserts spaces at the cursor, Shift+Tab removes up to four
+      if (!outdent) {
+        ta.setRangeText(INDENT, s, e, 'end');
+      } else {
+        const before = v.slice(ls, s);
+        const drop = Math.min(INDENT_WIDTH, (before.match(/ *$/) || [''])[0].length);
+        if (drop) ta.setRangeText('', s - drop, s, 'end');
+      }
+    } else {
+      let removedFirst = 0, removedTotal = 0;
+      const out = lines.map((line, i) => {
+        if (!outdent) return INDENT + line;
+        const m = line.match(/^( {1,4}|\t)/);
+        if (!m) return line;
+        if (i === 0) removedFirst = m[0].length;
+        removedTotal += m[0].length;
+        return line.slice(m[0].length);
+      });
+      ta.value = v.slice(0, ls) + out.join('\n') + v.slice(le);
+      const startNew = outdent ? Math.max(ls, s - removedFirst) : s + INDENT_WIDTH;
+      const endNew = outdent ? Math.max(startNew, e - removedTotal) : e + INDENT_WIDTH * lines.length;
+      ta.setSelectionRange(startNew, endNew);
+    }
+    paint(); saveDraft(); updateSize();
+  }
+
+  ta.addEventListener('input', () => { paint(); clearTimeout(ta._t); ta._t = setTimeout(saveDraft, 400); updateSize(); });
+
+  ta.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Tab') {
+      ev.preventDefault();
+      reindent(ev.shiftKey);
+      return;
+    }
+    if (ev.key === 'Enter' && !ev.ctrlKey && !ev.metaKey) {
+      // keep Python indentation: continue the current line's indent, +4 after a colon
+      const v = ta.value, s = ta.selectionStart, e = ta.selectionEnd;
+      const ls = v.lastIndexOf('\n', s - 1) + 1;
+      const lineText = v.slice(ls, s);
+      const lead = (lineText.match(/^[ \t]*/) || [''])[0];
+      const extra = /:\s*$/.test(lineText) ? INDENT : '';
+      ev.preventDefault();
+      const insert = '\n' + lead + extra;
+      ta.setRangeText(insert, s, e, 'end');
+      paint(); saveDraft(); updateSize();
+      return;
+    }
+    if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) {
+      ev.preventDefault();
+      $('#run').click();
+    }
+  });
+
+  updateSize();
+
+  $('#back').onclick = () => { location.hash = '#/exercises'; };
+  $('#hints').onclick = () => { const b = $('#hintbox'); b.hidden = !b.hidden; };
+  $('#reset').onclick = () => { ta.value = ex.starter || ''; paint(); saveDraft(); updateSize(); };
+  $('#run').onclick = async (e) => {
+    e.target.disabled = true; e.target.innerHTML = '<span class="spin"></span> running';
+    const host = $('#results');
+    host.innerHTML = '<div class="small dim">Executing your code…</div>';
+    try {
+      const r = await api('/api/exercise/' + encodeURIComponent(slug) + '/run', { method: 'POST', body: { code: ta.value } });
+      if (r.module_error) {
+        host.innerHTML = `<div class="result bad"><b>Could not run</b><pre class="errbox">${esc(r.module_error)}</pre></div>`;
+      } else {
+        const rows = (r.results || []).map(t => `
+          <div class="testrow ${t.ok ? 'ok' : 'bad'}">
+            <span class="mark">${t.ok ? '✓' : '✗'}</span>
+            <span>${esc(t.name)}</span>
+            ${t.error ? `<span class="err">${esc(t.error)}</span>` : ''}
+          </div>`).join('');
+        host.innerHTML = `<div class="result ${r.ok ? 'good' : 'bad'}">
+            <b>${r.ok ? 'All tests passed' : `${r.passed_count || 0} of ${r.total || 0} passed`}</b>
+          </div>${rows}`;
+        toast(r.ok ? 'All tests passed 🎉' : 'Not yet — see which test failed', !r.ok);
+        if (r.ok) {
+          await loadCourses(); paintChrome();
+          if (await chapterIsComplete(ex.chapter)) await finishChapter(ex.chapter);
+          else autoAdvance(slug, '#results');
+        }
+      }
+    } catch (err) {
+      host.innerHTML = `<div class="result bad">${esc(err.message)}</div>`;
+    }
+    e.target.disabled = false; e.target.textContent = 'Run tests';
+  };
+}
+
+/* -------------------------------------------------------------------- search */
+function renderSearch(qstr = '') {
+  S.view = 'search'; paintChrome();
+  app().innerHTML = `
+    <div class="card">
+      <h1>Search</h1>
+      <p class="muted small">Sessions, notes and exercises in ${esc(S.course || 'this course')}.</p>
+      <div class="row" style="margin-top:12px">
+        <input id="q" value="${esc(qstr)}" placeholder="softmax, loop, string, DataFrame…" style="flex:1">
+        <button class="primary" id="go">Search</button>
+      </div>
+    </div>
+    <div id="results" style="margin-top:16px"></div>`;
+  const run = async () => {
+    const query = $('#q').value.trim();
+    if (query.length < 2) { toast('Type at least 2 characters', true); return; }
+    const host = $('#results');
+    host.innerHTML = '<div class="empty"><span class="spin"></span></div>';
+    try {
+      const r = await api('/api/search?q=' + encodeURIComponent(query) + (S.course ? '&course=' + encodeURIComponent(S.course) : ''));
+      host.innerHTML = r.results.length ? r.results.map(x => `
+        <div class="card resultcard" data-kind="${x.kind}" data-n="${x.session || ''}" data-slug="${esc(x.slug || '')}">
+          <div class="row" style="justify-content:space-between">
+            <b>${esc(x.title)}</b><span class="tag">${x.kind}${x.pages ? ' · p' + esc(x.pages) : ''}${x.chapter ? ' · ch' + x.chapter : ''}</span>
+          </div>
+          <div class="small muted" style="margin-top:6px">${esc(x.snippet)}</div>
+        </div>`).join('') : '<div class="empty">Nothing matched.</div>';
+      host.querySelectorAll('.resultcard').forEach(el => el.onclick = () => {
+        if (el.dataset.kind === 'exercise') location.hash = '#/exercise/' + encodeURIComponent(el.dataset.slug);
+        else location.hash = '#/session/' + el.dataset.n;
+      });
+    } catch (err) { host.innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
+  };
+  $('#go').onclick = run;
+  $('#q').onkeydown = (e) => { if (e.key === 'Enter') run(); };
+  if (qstr) run();
+}
+
+/* --------------------------------------------------------------------- admin */
+async function renderAdmin() {
+  S.view = 'admin'; paintChrome();
+  app().innerHTML = '<div class="empty"><span class="spin"></span></div>';
+  try {
+    const [u, ev] = await Promise.all([api('/api/admin/users'), api('/api/events')]);
+    const pending = u.users.filter(x => x.status === 'pending');
+    app().innerHTML = `
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <div><h1>Accounts</h1>
+          <p class="muted small">${pending.length ? `<b style="color:var(--amber)">${pending.length} request${pending.length > 1 ? 's' : ''} waiting.</b>` : 'Nothing waiting for approval.'}</p></div>
+          <button class="small" id="reload">Refresh</button>
+        </div>
+        <table style="margin-top:14px">
+          <thead><tr><th>User</th><th>Status</th><th>Role</th><th>Created</th><th>Last login</th><th></th></tr></thead>
+          <tbody>${u.users.map(x => `
+            <tr>
+              <td><b>${esc(x.username)}</b>${x.email ? `<div class="dim small">${esc(x.email)}</div>` : ''}</td>
+              <td><span class="badge ${x.status}">${x.status}</span></td>
+              <td>${x.role === 'admin' ? '<span class="badge admin">admin</span>' : 'user'}</td>
+              <td class="small dim">${x.created_at ? new Date(x.created_at).toLocaleDateString() : ''}</td>
+              <td class="small dim">${x.last_login ? new Date(x.last_login).toLocaleString() : '—'}</td>
+              <td style="text-align:right;white-space:nowrap">
+                ${x.status !== 'approved' ? `<button class="small primary" data-act="approve" data-id="${x.id}">Approve</button>` : ''}
+                ${x.status === 'pending' ? `<button class="small" data-act="reject" data-id="${x.id}">Reject</button>` : ''}
+                ${x.role !== 'admin' ? `<button class="small" data-act="promote" data-id="${x.id}">Make admin</button>` : ''}
+                ${x.id !== S.user.id ? `<button class="small danger" data-act="delete" data-id="${x.id}">Delete</button>` : ''}
+              </td>
+            </tr>`).join('')}
+          </tbody></table>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h3>Recent activity</h3>
+        <table style="margin-top:10px"><tbody>${ev.events.map(e => `<tr>
+          <td class="small dim" style="width:170px">${new Date(e.created_at).toLocaleString()}</td>
+          <td class="small"><b>${esc(e.kind)}</b> ${esc(e.detail || '')}</td></tr>`).join('') || '<tr><td class="dim small">No events yet.</td></tr>'}
+        </tbody></table>
+      </div>`;
+    $('#reload').onclick = renderAdmin;
+    app().querySelectorAll('[data-act]').forEach(btn => {
+      btn.onclick = async () => {
+        const id = Number(btn.dataset.id), act = btn.dataset.act;
+        try {
+          if (act === 'approve') await api(`/api/admin/users/${id}/status`, { method: 'POST', body: { status: 'approved' } });
+          if (act === 'reject') await api(`/api/admin/users/${id}/status`, { method: 'POST', body: { status: 'rejected' } });
+          if (act === 'promote') await api(`/api/admin/users/${id}/role`, { method: 'POST', body: { role: 'admin' } });
+          if (act === 'delete') { if (!confirm('Delete this account?')) return; await api(`/api/admin/users/${id}`, { method: 'DELETE' }); }
+          toast('Updated'); renderAdmin();
+        } catch (err) { toast(err.message, true); }
+      };
+    });
+  } catch (err) { app().innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
+}
+
+/* ------------------------------------------------------------------ settings */
+async function renderSettings() {
+  S.view = 'settings'; paintChrome();
+  app().innerHTML = '<div class="empty"><span class="spin"></span></div>';
+  try {
+    const cfg = await api('/api/config');
+    app().innerHTML = `
+      <div class="card">
+        <h1>Settings</h1>
+        <p class="muted small">Paths and the fnOS NAS connection. On the NAS the password comes from a 0600 environment file, not this form.</p>
+        <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:14px">
+          <div><label>Workbook (.xlsx, default course)</label><input id="workbook" value="${esc(cfg.workbook)}"></div>
+          <div><label>Guide (.pdf, default course)</label><input id="guide" value="${esc(cfg.guide)}"></div>
+          <div><label>Vault folder for notes</label><input id="vault" value="${esc(cfg.vault)}"></div>
+          <div><label>Owner username</label><input id="owner" value="${esc(cfg.owner_username)}"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h3>NAS (fnOS · WebDAV)</h3>
+        <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:6px">
+          <div><label>LAN URL</label><input id="lan" value="${esc(cfg.nas.lan_url)}"></div>
+          <div><label>Remote URL (VPN / port-forward)</label><input id="public" value="${esc(cfg.nas.public_url)}"></div>
+          <div><label>Username</label><input id="nasuser" value="${esc(cfg.nas.user)}"></div>
+          <div><label>Password ${cfg.nas.has_password ? '<span class="dim">(saved)</span>' : ''}</label><input id="naspw" type="password"></div>
+          <div><label>Remote folder</label><input id="remote" value="${esc(cfg.nas.remote_dir)}"></div>
+          <div><label>Use</label><select id="active">
+            <option value="lan" ${cfg.nas.active === 'lan' ? 'selected' : ''}>LAN</option>
+            <option value="public" ${cfg.nas.active === 'public' ? 'selected' : ''}>Remote</option>
+          </select></div>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <button class="primary" id="save">Save settings</button>
+          <button id="test">Test connection</button>
+          <button id="uploadall">Upload all PDFs</button>
+        </div>
+        <div id="queuebar" class="row" style="margin-top:12px"></div>
+        <div id="nasout" class="small mono" style="margin-top:12px;color:var(--muted);white-space:pre-wrap"></div>
+      </div>`;
+
+    const out = (txt) => { $('#nasout').textContent = txt; };
+    async function refreshQueue() {
+      const bar = $('#queuebar'); if (!bar) return;
+      try {
+        const qq = await api('/api/nas/pending');
+        bar.innerHTML = qq.count
+          ? `<span class="pill amber">${qq.count} queued</span><button class="small primary" id="flush">Retry queued uploads</button>`
+          : '<span class="small dim">Nothing queued.</span>';
+        if ($('#flush')) $('#flush').onclick = async (e) => {
+          e.target.disabled = true; e.target.innerHTML = '<span class="spin"></span> retrying';
+          try { const r = await api('/api/nas/flush', { method: 'POST', body: { target: $('#active').value } }); toast(r.message); out(r.message); }
+          catch (err) { toast(err.message, true); }
+          refreshQueue();
+        };
+      } catch { /* ignore */ }
+    }
+    refreshQueue();
+
+    $('#save').onclick = async () => {
+      try {
+        await api('/api/config', { method: 'POST', body: {
+          workbook: $('#workbook').value, guide: $('#guide').value, vault: $('#vault').value, owner_username: $('#owner').value,
+          nas: { lan_url: $('#lan').value, public_url: $('#public').value, user: $('#nasuser').value, password: $('#naspw').value, remote_dir: $('#remote').value, active: $('#active').value },
+        } });
+        toast('Settings saved'); await refreshPlan();
+      } catch (err) { toast(err.message, true); }
+    };
+    $('#test').onclick = async () => {
+      out('Testing…');
+      try {
+        const r = await api('/api/nas/status?target=' + $('#active').value);
+        if (!r.ok) { out('FAILED: ' + r.error); return; }
+        const files = (r.remote_files || []).filter(f => !f.is_dir);
+        out(`OK  ${r.url}\nDAV: ${r.dav}\nFolder: ${r.remote_dir}\nFiles: ${files.length}\n` +
+            files.slice(0, 10).map(f => `  · ${f.name}`).join('\n'));
+      } catch (err) { out('FAILED: ' + err.message); }
+    };
+    $('#uploadall').onclick = (e) => uploadAll(e.target, out);
+  } catch (err) { app().innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
+}
+
+async function uploadAll(btn, log) {
+  const label = btn.textContent;
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> uploading…';
+  try {
+    const r = await api('/api/nas/upload', { method: 'POST', body: { target: 'lan', course: S.course } });
+    toast(r.message || 'Done');
+    if (log) log(r.message + '\n' + (r.uploaded || []).slice(0, 40).map(f => '  · ' + f).join('\n'));
+  } catch (err) { toast(err.message, true); if (log) log('FAILED: ' + err.message); }
+  btn.disabled = false; btn.textContent = label;
+}
+
+/* -------------------------------------------------------------------- router */
+function route() {
+  if (!S.user) {
+    if (S.setupRequired) { renderSetup(); return; }
+    renderAuth(location.hash.includes('signup') ? 'signup' : 'login');
+    return;
+  }
+  const hash = location.hash || '#/plan';
+  let m;
+  if ((m = hash.match(/^#\/session\/(\d+)/))) return renderSession(m[1]);
+  if ((m = hash.match(/^#\/exercise\/([^/?]+)/))) return renderExercise(decodeURIComponent(m[1]));
+  if (hash.startsWith('#/exercises')) return renderExercises();
+  if (hash.startsWith('#/search')) return renderSearch(new URLSearchParams(hash.split('?')[1] || '').get('q') || '');
+  if (hash.startsWith('#/admin')) return renderAdmin();
+  if (hash.startsWith('#/settings')) return renderSettings();
+  return renderPlan();
+}
+
+/* ---------------------------------------------------------------------- boot */
+async function boot() {
+  try {
+    const st = await api('/api/state');
+    S.setupRequired = st.setup_required;
+    if (st.setup_required) { renderSetup(); return; }
+    if (!st.user) { route(); return; }
+    S.user = st.user;
+    await loadCourses();
+    await refreshPlan();
+    paintChrome();
+    route();
+  } catch (err) {
+    app().innerHTML = `<div class="empty">Cannot reach LearnLoop: ${esc(err.message)}</div>`;
+  }
+}
+
+$('#logout').onclick = async () => {
+  try { await api('/api/logout', { method: 'POST' }); } catch { /* ignore */ }
+  S.user = null; S.plan = null; S.courses = []; clearTimer();
+  paintChrome(); location.hash = ''; route();
+};
+
+$('#coursesel').onchange = (e) => switchCourse(e.target.value);
+window.addEventListener('hashchange', route);
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+boot();

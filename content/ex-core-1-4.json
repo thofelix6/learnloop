@@ -1,0 +1,444 @@
+[
+  {
+    "slug": "ex-1-1",
+    "chapter": 1,
+    "title": "Celsius to Fahrenheit",
+    "prompt": "Write a function celsius_to_f(celsius) that converts a temperature in degrees Celsius to degrees Fahrenheit and returns it as a float.\n\nUse the formula F = C * 9 / 5 + 32.\n\nExamples:\ncelsius_to_f(100) -> 212.0\ncelsius_to_f(0) -> 32.0\ncelsius_to_f(-40) -> -40.0\n\nEdge cases: the input may be negative, zero, or a decimal such as 36.6. Return the exact converted value without rounding or printing.",
+    "starter": "def celsius_to_f(celsius):\n    \"\"\"Return the Fahrenheit equivalent of a Celsius temperature.\"\"\"\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "boiling point",
+        "code": "assert abs(celsius_to_f(100) - 212.0) < 1e-9"
+      },
+      {
+        "name": "freezing point",
+        "code": "assert abs(celsius_to_f(0) - 32.0) < 1e-9"
+      },
+      {
+        "name": "minus forty",
+        "code": "assert abs(celsius_to_f(-40) - (-40.0)) < 1e-9"
+      },
+      {
+        "name": "body temperature",
+        "code": "assert abs(celsius_to_f(37) - 98.6) < 1e-9"
+      },
+      {
+        "name": "decimal input",
+        "code": "assert abs(celsius_to_f(36.6) - 97.88) < 1e-9"
+      }
+    ],
+    "solution": "def celsius_to_f(celsius):\n    \"\"\"Return the Fahrenheit equivalent of a Celsius temperature.\"\"\"\n    return celsius * 9 / 5 + 32\n",
+    "hints": [
+      "Multiply by 9 first, then divide by 5, and add 32 at the end.",
+      "Return the expression directly; printing is not part of the answer."
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "slug": "ex-1-2",
+    "chapter": 1,
+    "title": "Receipt Line",
+    "prompt": "Write a function format_receipt(item_name, unit_price, quantity) that returns one receipt line as a string in exactly this format:\n\n<item_name> x<quantity> = $<total with 2 decimals>\n\nThe total is unit_price multiplied by quantity, formatted with exactly two decimal places. Do not add spaces around \"x\" or \"=\" and do not print anything.\n\nExamples:\nformat_receipt(\"Coffee\", 3.75, 2) -> \"Coffee x2 = $7.50\"\nformat_receipt(\"Tea\", 2.5, 1) -> \"Tea x1 = $2.50\"\nformat_receipt(\"Muffin\", 4.0, 3) -> \"Muffin x3 = $12.00\"\n\nEdge case: quantity may be 0, in which case the total is $0.00.",
+    "starter": "def format_receipt(item_name, unit_price, quantity):\n    \"\"\"Return a receipt line: '<name> x<qty> = $<total>' with two decimals.\"\"\"\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "two coffees",
+        "code": "assert format_receipt(\"Coffee\", 3.75, 2) == \"Coffee x2 = $7.50\""
+      },
+      {
+        "name": "single tea",
+        "code": "assert format_receipt(\"Tea\", 2.5, 1) == \"Tea x1 = $2.50\""
+      },
+      {
+        "name": "three muffins",
+        "code": "assert format_receipt(\"Muffin\", 4.0, 3) == \"Muffin x3 = $12.00\""
+      },
+      {
+        "name": "zero quantity",
+        "code": "assert format_receipt(\"Bagel\", 1.25, 0) == \"Bagel x0 = $0.00\""
+      }
+    ],
+    "solution": "def format_receipt(item_name, unit_price, quantity):\n    \"\"\"Return a receipt line: '<name> x<qty> = $<total>' with two decimals.\"\"\"\n    return f\"{item_name} x{quantity} = ${unit_price * quantity:.2f}\"\n",
+    "hints": [
+      "An f-string can place variables and a format specifier in one string.",
+      "The specifier :.2f always shows exactly two digits after the decimal point."
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "slug": "ex-1-3",
+    "chapter": 1,
+    "title": "Split the Bill",
+    "prompt": "Write a function split_bill(total, people, tip_percent) that returns how much each person pays, rounded to 2 decimal places.\n\nAdd the tip percentage to the total, divide by the number of people, and round the result with round(value, 2). Return a float.\n\nExamples:\nsplit_bill(100.0, 4, 15) -> 28.75\nsplit_bill(50.0, 3, 0) -> 16.67\nsplit_bill(10.0, 4, 10) -> 2.75\n\nEdge cases: tip_percent may be 0 and total may be 0.0; people is always at least 1. Do not print anything.",
+    "starter": "def split_bill(total, people, tip_percent):\n    \"\"\"Return the per-person share, tip included, rounded to 2 decimals.\"\"\"\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "fifteen percent",
+        "code": "assert split_bill(100.0, 4, 15) == 28.75"
+      },
+      {
+        "name": "no tip rounding",
+        "code": "assert split_bill(50.0, 3, 0) == 16.67"
+      },
+      {
+        "name": "ten percent",
+        "code": "assert split_bill(10.0, 4, 10) == 2.75"
+      },
+      {
+        "name": "zero total",
+        "code": "assert split_bill(0.0, 5, 20) == 0.0"
+      },
+      {
+        "name": "one person",
+        "code": "assert split_bill(80.0, 1, 25) == 100.0"
+      }
+    ],
+    "solution": "def split_bill(total, people, tip_percent):\n    \"\"\"Return the per-person share, tip included, rounded to 2 decimals.\"\"\"\n    return round(total * (1 + tip_percent / 100) / people, 2)\n",
+    "hints": [
+      "Add the tip to the total first, then divide by the number of people.",
+      "round(value, 2) rounds to two decimal places, which is what the tests expect."
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "slug": "ex-2-1",
+    "chapter": 2,
+    "title": "Split Seconds",
+    "prompt": "Write a function split_seconds(total_seconds) that converts a non-negative number of seconds into a tuple (hours, minutes, seconds).\n\nUse integer division // and the remainder operator %. Each value is an int, and minutes and seconds are always in the range 0-59.\n\nExamples:\nsplit_seconds(3661) -> (1, 1, 1)\nsplit_seconds(59) -> (0, 0, 59)\nsplit_seconds(86399) -> (23, 59, 59)\n\nEdge case: split_seconds(0) -> (0, 0, 0). The input is never negative.",
+    "starter": "def split_seconds(total_seconds):\n    \"\"\"Return (hours, minutes, seconds) for a non-negative second count.\"\"\"\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "one hour plus",
+        "code": "assert split_seconds(3661) == (1, 1, 1)"
+      },
+      {
+        "name": "under a minute",
+        "code": "assert split_seconds(59) == (0, 0, 59)"
+      },
+      {
+        "name": "zero",
+        "code": "assert split_seconds(0) == (0, 0, 0)"
+      },
+      {
+        "name": "end of day",
+        "code": "assert split_seconds(86399) == (23, 59, 59)"
+      },
+      {
+        "name": "exact hour",
+        "code": "assert split_seconds(3600) == (1, 0, 0)"
+      }
+    ],
+    "solution": "def split_seconds(total_seconds):\n    \"\"\"Return (hours, minutes, seconds) for a non-negative second count.\"\"\"\n    hours = total_seconds // 3600\n    minutes = (total_seconds % 3600) // 60\n    seconds = total_seconds % 60\n    return (hours, minutes, seconds)\n",
+    "hints": [
+      "// removes the fractional part, so total_seconds // 3600 gives whole hours.",
+      "total_seconds % 3600 is the leftover after whole hours are removed."
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "slug": "ex-2-2",
+    "chapter": 2,
+    "title": "Almost Equal",
+    "prompt": "Write a function nearly_equal(a, b, tol=1e-9) that returns True when the absolute difference between a and b is less than or equal to tol, and False otherwise.\n\nBoth a and b are numbers. tol is a small non-negative float with a default value of 1e-9.\n\nExamples:\nnearly_equal(0.1 + 0.2, 0.3) -> True\nnearly_equal(1.0, 1.000001, 1e-6) -> True\nnearly_equal(1.0, 1.000001, 1e-9) -> False\nnearly_equal(-2.0, -2.0, 0.0) -> True\n\nEdge cases: equal numbers are always equal, including 0.0 and 0.0, and tol may be 0.0.",
+    "starter": "def nearly_equal(a, b, tol=1e-9):\n    \"\"\"Return True when abs(a - b) is at most tol.\"\"\"\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "binary float sum",
+        "code": "assert nearly_equal(0.1 + 0.2, 0.3)"
+      },
+      {
+        "name": "loose tolerance",
+        "code": "assert nearly_equal(1.0, 1.000001, 1e-6)"
+      },
+      {
+        "name": "tight tolerance",
+        "code": "assert not nearly_equal(1.0, 1.000001, 1e-9)"
+      },
+      {
+        "name": "zero tolerance equal",
+        "code": "assert nearly_equal(-2.0, -2.0, 0.0)"
+      },
+      {
+        "name": "small nonzero",
+        "code": "assert not nearly_equal(1e-8, 0.0, 1e-9)"
+      }
+    ],
+    "solution": "def nearly_equal(a, b, tol=1e-9):\n    \"\"\"Return True when abs(a - b) is at most tol.\"\"\"\n    return abs(a - b) <= tol\n",
+    "hints": [
+      "abs(a - b) is the distance between the two numbers.",
+      "Use <=, not <, so a difference exactly equal to tol still counts as equal."
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "slug": "ex-2-3",
+    "chapter": 2,
+    "title": "Round Half Up",
+    "prompt": "Write a function round_half_up(value, places) that rounds a number to the given number of decimal places using \"half away from zero\" rounding, and returns a float.\n\nThis differs from Python's built-in round(), which works on the binary float and rounds ties to even. Convert the number through its decimal string representation so that 1.005 rounds to 1.01 and both 2.5 and -2.5 round away from zero.\n\nExamples:\nround_half_up(2.5, 0) -> 3.0\nround_half_up(-2.5, 0) -> -3.0\nround_half_up(1.005, 2) -> 1.01\nround_half_up(2.675, 2) -> 2.68\n\nEdge cases: places may be 0, value may be negative or 0.0, and the return value must be a float even when the result is a whole number.",
+    "starter": "def round_half_up(value, places):\n    \"\"\"Round value to places decimals, ties away from zero; return a float.\"\"\"\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "half to even avoided",
+        "code": "assert round_half_up(2.5, 0) == 3.0"
+      },
+      {
+        "name": "negative half",
+        "code": "assert round_half_up(-2.5, 0) == -3.0"
+      },
+      {
+        "name": "float tie",
+        "code": "assert round_half_up(1.005, 2) == 1.01"
+      },
+      {
+        "name": "another float tie",
+        "code": "assert round_half_up(2.675, 2) == 2.68"
+      },
+      {
+        "name": "three places",
+        "code": "assert round_half_up(1.2345, 3) == 1.235"
+      },
+      {
+        "name": "zero value",
+        "code": "assert round_half_up(0.0, 2) == 0.0"
+      }
+    ],
+    "solution": "from decimal import Decimal, ROUND_HALF_UP\n\n\ndef round_half_up(value, places):\n    \"\"\"Round value to places decimals, ties away from zero; return a float.\"\"\"\n    quantum = Decimal(1).scaleb(-places)\n    return float(Decimal(str(value)).quantize(quantum, rounding=ROUND_HALF_UP))\n",
+    "hints": [
+      "Import Decimal and ROUND_HALF_UP from the decimal module.",
+      "Decimal(str(value)) avoids the binary float error that makes round(1.005, 2) return 1.0."
+    ],
+    "difficulty": "hard"
+  },
+  {
+    "slug": "ex-3-1",
+    "chapter": 3,
+    "title": "Letter Grade",
+    "prompt": "Write a function grade(score) that returns a letter grade for an integer score from 0 to 100.\n\nBands:\n90-100 -> \"A\"\n80-89 -> \"B\"\n70-79 -> \"C\"\n60-69 -> \"D\"\n0-59 -> \"F\"\n\nExamples:\ngrade(95) -> \"A\"\ngrade(89) -> \"B\"\ngrade(59) -> \"F\"\n\nEdge cases: 90 and 80 are the lower ends of their bands and return \"A\" and \"B\"; 0 returns \"F\". Scores are always between 0 and 100.",
+    "starter": "def grade(score):\n    \"\"\"Return the letter grade for a score from 0 to 100.\"\"\"\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "perfect score",
+        "code": "assert grade(100) == \"A\""
+      },
+      {
+        "name": "a boundary",
+        "code": "assert grade(90) == \"A\""
+      },
+      {
+        "name": "b boundary",
+        "code": "assert grade(89) == \"B\""
+      },
+      {
+        "name": "c boundary",
+        "code": "assert grade(70) == \"C\""
+      },
+      {
+        "name": "f boundary",
+        "code": "assert grade(59) == \"F\""
+      },
+      {
+        "name": "zero score",
+        "code": "assert grade(0) == \"F\""
+      }
+    ],
+    "solution": "def grade(score):\n    \"\"\"Return the letter grade for a score from 0 to 100.\"\"\"\n    if score >= 90:\n        return \"A\"\n    if score >= 80:\n        return \"B\"\n    if score >= 70:\n        return \"C\"\n    if score >= 60:\n        return \"D\"\n    return \"F\"\n",
+    "hints": [
+      "Test the highest band first and return immediately when it matches.",
+      "An if/elif/else chain stops at the first true condition."
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "slug": "ex-3-2",
+    "chapter": 3,
+    "title": "Leap Year",
+    "prompt": "Write a function is_leap_year(year) that returns True if year is a leap year and False otherwise.\n\nA year is a leap year when it is divisible by 4, except that years divisible by 100 are not leap years unless they are also divisible by 400.\n\nExamples:\nis_leap_year(2024) -> True\nis_leap_year(1900) -> False\nis_leap_year(2000) -> True\n\nEdge cases: century years such as 1900 and 2100 are not leap years, while 1600 and 2400 are. year is a positive integer.",
+    "starter": "def is_leap_year(year):\n    \"\"\"Return True if year is a leap year.\"\"\"\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "recent leap",
+        "code": "assert is_leap_year(2024)"
+      },
+      {
+        "name": "common year",
+        "code": "assert not is_leap_year(2023)"
+      },
+      {
+        "name": "century non-leap",
+        "code": "assert not is_leap_year(1900)"
+      },
+      {
+        "name": "four hundred leap",
+        "code": "assert is_leap_year(2000)"
+      },
+      {
+        "name": "other century",
+        "code": "assert not is_leap_year(2100)"
+      },
+      {
+        "name": "sixteen hundred",
+        "code": "assert is_leap_year(1600)"
+      }
+    ],
+    "solution": "def is_leap_year(year):\n    \"\"\"Return True if year is a leap year.\"\"\"\n    return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)\n",
+    "hints": [
+      "The rule is year % 4 == 0 and (year % 100 != 0 or year % 400 == 0).",
+      "Check the century exception separately so 1900 is False but 2000 is True."
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "slug": "ex-3-3",
+    "chapter": 3,
+    "title": "Triangle Types",
+    "prompt": "Write a function classify_triangle(a, b, c) that classifies a triangle by its side lengths and returns one of four strings: \"equilateral\", \"isosceles\", \"scalene\", or \"invalid\".\n\nA triangle is valid when all three sides are greater than 0 and the sum of any two sides is strictly greater than the third. An equilateral triangle has all sides equal, an isosceles has exactly two equal sides, and a scalene has all sides different.\n\nExamples:\nclassify_triangle(3, 3, 3) -> \"equilateral\"\nclassify_triangle(5, 5, 8) -> \"isosceles\"\nclassify_triangle(3, 4, 5) -> \"scalene\"\n\nEdge cases: (1, 2, 3) and (2, 2, 4) are \"invalid\" because two sides only just reach the third; zero and negative sides are \"invalid\".",
+    "starter": "def classify_triangle(a, b, c):\n    \"\"\"Return 'equilateral', 'isosceles', 'scalene', or 'invalid'.\"\"\"\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "equilateral",
+        "code": "assert classify_triangle(3, 3, 3) == \"equilateral\""
+      },
+      {
+        "name": "isosceles",
+        "code": "assert classify_triangle(5, 5, 8) == \"isosceles\""
+      },
+      {
+        "name": "scalene",
+        "code": "assert classify_triangle(3, 4, 5) == \"scalene\""
+      },
+      {
+        "name": "degenerate",
+        "code": "assert classify_triangle(1, 2, 3) == \"invalid\""
+      },
+      {
+        "name": "flat isosceles",
+        "code": "assert classify_triangle(2, 2, 4) == \"invalid\""
+      },
+      {
+        "name": "zero side",
+        "code": "assert classify_triangle(0, 5, 5) == \"invalid\""
+      },
+      {
+        "name": "negative side",
+        "code": "assert classify_triangle(-1, 2, 2) == \"invalid\""
+      }
+    ],
+    "solution": "def classify_triangle(a, b, c):\n    \"\"\"Return 'equilateral', 'isosceles', 'scalene', or 'invalid'.\"\"\"\n    if a <= 0 or b <= 0 or c <= 0:\n        return \"invalid\"\n    if a + b <= c or a + c <= b or b + c <= a:\n        return \"invalid\"\n    if a == b == c:\n        return \"equilateral\"\n    if a == b or b == c or a == c:\n        return \"isosceles\"\n    return \"scalene\"\n",
+    "hints": [
+      "Check validity, including the triangle inequality, before comparing sides for equality.",
+      "A triangle is invalid when any one side is greater than or equal to the sum of the other two."
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "slug": "ex-4-1",
+    "chapter": 4,
+    "title": "Sum of Digits",
+    "prompt": "Write a function sum_of_digits(n) that returns the sum of the decimal digits of n.\n\nUse a loop that peels off one digit at a time with % 10 and // 10. For negative numbers, sum the digits of the absolute value, ignoring the minus sign.\n\nExamples:\nsum_of_digits(1234) -> 10\nsum_of_digits(0) -> 0\nsum_of_digits(-507) -> 12\n\nEdge cases: sum_of_digits(0) returns 0, and the sign of a negative input is ignored.",
+    "starter": "def sum_of_digits(n):\n    \"\"\"Return the sum of the decimal digits of n, ignoring the sign.\"\"\"\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "four digits",
+        "code": "assert sum_of_digits(1234) == 10"
+      },
+      {
+        "name": "zero",
+        "code": "assert sum_of_digits(0) == 0"
+      },
+      {
+        "name": "negative",
+        "code": "assert sum_of_digits(-507) == 12"
+      },
+      {
+        "name": "single digit",
+        "code": "assert sum_of_digits(9) == 9"
+      },
+      {
+        "name": "powers of ten",
+        "code": "assert sum_of_digits(1000000) == 1"
+      }
+    ],
+    "solution": "def sum_of_digits(n):\n    \"\"\"Return the sum of the decimal digits of n, ignoring the sign.\"\"\"\n    total = 0\n    n = abs(n)\n    while n > 0:\n        total += n % 10\n        n //= 10\n    return total\n",
+    "hints": [
+      "abs(n) removes the sign so the loop only sees non-negative numbers.",
+      "n % 10 is the last digit and n // 10 drops it."
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "slug": "ex-4-2",
+    "chapter": 4,
+    "title": "Prime Factors",
+    "prompt": "Write a function prime_factors(n) that returns a list of the prime factors of n in ascending order, including repeats.\n\nn is an integer greater than or equal to 1. Factor out 2s first, then test odd divisors up to the square root of the remaining number; if anything greater than 1 remains, it is prime.\n\nExamples:\nprime_factors(12) -> [2, 2, 3]\nprime_factors(97) -> [97]\nprime_factors(360) -> [2, 2, 2, 3, 3, 5]\n\nEdge case: prime_factors(1) returns [] because 1 has no prime factors.",
+    "starter": "def prime_factors(n):\n    \"\"\"Return the prime factors of n in ascending order, with repeats.\"\"\"\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "twelve",
+        "code": "assert prime_factors(12) == [2, 2, 3]"
+      },
+      {
+        "name": "prime number",
+        "code": "assert prime_factors(97) == [97]"
+      },
+      {
+        "name": "one",
+        "code": "assert prime_factors(1) == []"
+      },
+      {
+        "name": "many factors",
+        "code": "assert prime_factors(360) == [2, 2, 2, 3, 3, 5]"
+      },
+      {
+        "name": "smallest prime",
+        "code": "assert prime_factors(2) == [2]"
+      },
+      {
+        "name": "repeated prime",
+        "code": "assert prime_factors(64) == [2, 2, 2, 2, 2, 2]"
+      }
+    ],
+    "solution": "def prime_factors(n):\n    \"\"\"Return the prime factors of n in ascending order, with repeats.\"\"\"\n    factors = []\n    while n % 2 == 0:\n        factors.append(2)\n        n //= 2\n    divisor = 3\n    while divisor * divisor <= n:\n        while n % divisor == 0:\n            factors.append(divisor)\n            n //= divisor\n        divisor += 2\n    if n > 1:\n        factors.append(n)\n    return factors\n",
+    "hints": [
+      "Divide out every factor of 2 before testing odd divisors.",
+      "Only test divisors while d * d <= n; a leftover n greater than 1 is prime.",
+      "Append a divisor each time it divides evenly, then divide n by it."
+    ],
+    "difficulty": "hard"
+  },
+  {
+    "slug": "ex-4-3",
+    "chapter": 4,
+    "title": "Collatz Length",
+    "prompt": "Write a function collatz_length(n) that returns the number of steps needed to reach 1 using the Collatz rules: if n is even, divide it by 2; if n is odd, replace it with 3 * n + 1.\n\nCount only the transformations, not the final 1. n is an integer greater than or equal to 1.\n\nExamples:\ncollatz_length(1) -> 0\ncollatz_length(6) -> 8\ncollatz_length(27) -> 111\n\nEdge case: collatz_length(1) returns 0 because no steps are needed. Every input used here reaches 1.",
+    "starter": "def collatz_length(n):\n    \"\"\"Return the number of Collatz steps needed to reach 1.\"\"\"\n    raise NotImplementedError\n",
+    "tests": [
+      {
+        "name": "already one",
+        "code": "assert collatz_length(1) == 0"
+      },
+      {
+        "name": "one step",
+        "code": "assert collatz_length(2) == 1"
+      },
+      {
+        "name": "six",
+        "code": "assert collatz_length(6) == 8"
+      },
+      {
+        "name": "three",
+        "code": "assert collatz_length(3) == 7"
+      },
+      {
+        "name": "long chain",
+        "code": "assert collatz_length(27) == 111"
+      }
+    ],
+    "solution": "def collatz_length(n):\n    \"\"\"Return the number of Collatz steps needed to reach 1.\"\"\"\n    steps = 0\n    while n != 1:\n        if n % 2 == 0:\n            n //= 2\n        else:\n            n = 3 * n + 1\n        steps += 1\n    return steps\n",
+    "hints": [
+      "Use a while loop that continues while n != 1.",
+      "Increment the step counter after each transformation, including the one that produces 1.",
+      "For odd n the next value is 3 * n + 1."
+    ],
+    "difficulty": "hard"
+  }
+]

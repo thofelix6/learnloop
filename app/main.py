@@ -1005,4 +1005,5 @@ def api_analytics(request: Request, days: int = 14):
 @app.get('/api/health')
 def api_health():
     return _json({'ok': True, 'time': datetime.now().isoformat(timespec='seconds'),
+                  'build': site.asset_version(),
                   'code_execution': grader.enabled()})

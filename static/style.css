@@ -448,6 +448,13 @@ input[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: rgba(2
 .footnav a[aria-current="page"] { color: var(--text); font-weight: 600; }
 
 /* ------------------------------------------------------------ consent banner */
+.newbuild {
+  position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+  z-index: 85; display: flex; gap: 14px; align-items: center;
+  padding: 10px 14px; border-radius: 12px; font-size: 13px; color: var(--text);
+  background: var(--panel-2); border: 1px solid var(--line); box-shadow: var(--shadow);
+}
+@media (max-width: 720px) { .newbuild { bottom: auto; top: 64px; width: calc(100vw - 24px); justify-content: space-between; } }
 .consent {
   position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
   width: min(760px, calc(100vw - 24px)); z-index: 80;

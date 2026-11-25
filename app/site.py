@@ -265,6 +265,37 @@ def install(app: FastAPI) -> None:
         return FileResponse(str(STATIC / 'favicon.ico'), media_type='image/x-icon',
                             headers={'Cache-Control': 'public, max-age=86400'})
 
+    @app.get('/fresh', include_in_schema=False)
+    def fresh():
+        """Clear this origin's HTTP cache and browser storage, then offer the app.
+
+        A browser can hold an old document from before the app sent cache headers at
+        all; no response header can reach that entry. Loading this URL is a different
+        request, so it is always fetched, and ``Clear-Site-Data`` empties the cache and
+        the service-worker storage behind it. Cookies are deliberately left alone, so
+        the visitor stays signed in.
+        """
+        page = (
+            '<!doctype html><html lang="en"><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width, initial-scale=1">'
+            '<title>Cache cleared · LearnLoop</title>'
+            '<link rel="icon" href="/static/icon.svg" type="image/svg+xml">'
+            '<style>body{margin:0;min-height:100vh;display:grid;place-items:center;'
+            'background:#0a0d12;color:#e8eef6;font:16px/1.6 "Segoe UI",system-ui,sans-serif}'
+            'div{max-width:520px;padding:28px;border:1px solid #22303f;border-radius:16px;'
+            'background:#131a24}h1{font-size:22px;margin:0 0 10px}'
+            'p{color:#8fa1b5;margin:0 0 18px}a{display:inline-block;padding:11px 18px;'
+            'border-radius:10px;background:#3fd0e0;color:#06121a;font-weight:650;'
+            'text-decoration:none}</style>'
+            '<div><h1>Cache cleared</h1>'
+            '<p>This browser dropped the old copy of LearnLoop. Open the app to load the '
+            'current version.</p><a href="/">Open LearnLoop</a></div></html>'
+        )
+        return HTMLResponse(page, headers={
+            'Clear-Site-Data': '"cache", "storage"',
+            'Cache-Control': 'no-store',
+        })
+
     @app.exception_handler(404)
     async def _not_found(request: Request, exc):
         if request.url.path.startswith('/api/'):

@@ -1576,6 +1576,45 @@ $('#logout').onclick = async () => {
 $('#coursesel').onchange = (e) => switchCourse(e.target.value);
 window.addEventListener('hashchange', () => { route(); trackView(); });
 
+/* An open tab keeps running the script it loaded with. Ask the server for the current
+   build stamp (the ?v= this script was fetched with) and reload when they differ, so a
+   deploy is never invisible to a tab that was already open. Never reload while the
+   visitor is typing — offer a bar instead. */
+function ensureFreshBuild() {
+  const mine = new URL(import.meta.url).searchParams.get('v');
+  if (!mine) return;
+
+  const offerReload = () => {
+    if ($('#newbuild')) return;
+    const bar = document.createElement('div');
+    bar.id = 'newbuild';
+    bar.className = 'newbuild';
+    bar.innerHTML = '<span>A new version of LearnLoop is ready.</span>'
+      + '<button class="small primary" id="newbuild-go">Reload</button>';
+    document.body.appendChild(bar);
+    $('#newbuild-go').onclick = () => location.reload();
+  };
+
+  const check = async () => {
+    try {
+      const res = await fetch('/api/health', { cache: 'no-store' });
+      const data = await res.json();
+      if (!data.build || data.build === mine) return;
+      const el = document.activeElement;
+      const typing = el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
+      const draft = $('#note') && $('#note').value.trim();
+      if (typing || draft) { offerReload(); return; }
+      if (sessionStorage.getItem('ll-build-reload') === String(data.build)) { offerReload(); return; }
+      sessionStorage.setItem('ll-build-reload', String(data.build));
+      location.reload();
+    } catch (e) { /* offline or the server is restarting */ }
+  };
+
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+  setTimeout(check, 20000);
+  setInterval(check, 300000);
+}
+
 /* Replace an older service worker as soon as possible. The shell is versioned with
    ?v=, but a tab that was open before a deploy would otherwise keep the old worker
    (and its cached shell) for up to a day. */
@@ -1595,3 +1634,4 @@ if ('serviceWorker' in navigator) {
   });
 }
 boot();
+ensureFreshBuild();

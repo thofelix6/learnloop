@@ -17,12 +17,12 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 STATIC = Path(__file__).resolve().parent.parent / 'static'
 
-BG = (10, 13, 18)          # #0a0d12
-BG2 = (15, 20, 28)         # #0f141c
-CYAN = (63, 208, 224)      # #3fd0e0
-VIOLET = (124, 92, 255)    # #7c5cff
-TEXT = (232, 238, 246)     # #e8eef6
-MUTED = (143, 161, 181)    # #8fa1b5
+BG = (11, 17, 32)          # #0b1120
+BG2 = (14, 23, 40)         # #0e1728
+CYAN = (74, 222, 128)      # #4ade80
+VIOLET = (147, 180, 240)   # #93b4f0
+TEXT = (248, 250, 252)     # #f8fafc
+MUTED = (168, 182, 201)    # #a8b6c9
 
 FONT_BOLD = Path(r'C:\Windows\Fonts\segoeuib.ttf')
 FONT_REGULAR = Path(r'C:\Windows\Fonts\segoeui.ttf')

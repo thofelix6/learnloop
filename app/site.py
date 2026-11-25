@@ -6,6 +6,7 @@ metadata, so it never touches the learning features themselves.
 from __future__ import annotations
 
 import ipaddress
+import mimetypes
 import re
 from datetime import datetime, timezone
 from html import escape
@@ -22,6 +23,12 @@ from fastapi.responses import (
 )
 
 from . import config
+
+# Windows' mimetypes database has no entry for woff2, so StaticFiles would serve the
+# fonts as application/octet-stream and browsers would ignore <link rel=preload as=font>.
+mimetypes.add_type('font/woff2', '.woff2')
+mimetypes.add_type('font/woff', '.woff')
+mimetypes.add_type('image/webp', '.webp')
 
 STATIC = config.STATIC
 

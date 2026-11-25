@@ -12,34 +12,42 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<'
 /* ----------------------------------------------------------- page metadata */
 const SITE = 'LearnLoop';
 const META = {
-  plan: ['Plan · LearnLoop', 'Your dated study plan: every session, its deliverable, your progress and the exercises that prove it.'],
-  exercises: ['Exercises · LearnLoop', 'Chapter questions and server-graded lab exercises for this course.'],
-  exercise: ['Exercise · LearnLoop', 'One exercise, graded on the server against hidden tests.'],
-  search: ['Search · LearnLoop', 'Search sessions, notes and exercises in this course.'],
-  admin: ['Admin · LearnLoop', 'Approve accounts and review recent activity.'],
-  settings: ['Settings · LearnLoop', 'Paths, site details and the NAS connection.'],
-  login: ['Sign in · LearnLoop', 'Sign in to your study plan, split PDFs, narrated lectures and auto-graded exercises.'],
-  signup: ['Request an account · LearnLoop', 'Request a LearnLoop account. An administrator approves it before you can sign in.'],
-  setup: ['First run · LearnLoop', 'Create the administrator account for this LearnLoop instance.'],
-  notfound: ['Page not found · LearnLoop', 'That address does not exist on this LearnLoop server.'],
+  session: { title: 'Session', kicker: '', desc: 'One study session: the reading, the timer, notes and the exercises that follow.' },
+  plan: { title: 'Plan', kicker: 'Your plan', desc: 'Your dated study plan: every session, its deliverable, your progress and the exercises that prove it.' },
+  exercises: { title: 'Exercises', kicker: 'Practice', desc: 'Chapter questions and server-graded lab exercises for this course.' },
+  exercise: { title: 'Exercise', kicker: 'Practice', desc: 'One exercise, graded on the server against hidden tests.' },
+  search: { title: 'Search', kicker: 'Find anything', desc: 'Search sessions, notes and exercises in this course.' },
+  admin: { title: 'Admin', kicker: 'Accounts and traffic', desc: 'Approve accounts, review activity and read the first-party traffic counts.' },
+  settings: { title: 'Settings', kicker: 'Instance', desc: 'Paths, site details and the NAS connection.' },
+  login: { title: 'Sign in', kicker: 'Welcome back', desc: 'Sign in to your study plan, split PDFs, narrated lectures and auto-graded exercises.' },
+  signup: { title: 'Request an account', kicker: 'New account', desc: 'Request a LearnLoop account. An administrator approves it before you can sign in.' },
+  setup: { title: 'First run', kicker: 'Set up', desc: 'Create the administrator account for this LearnLoop instance.' },
+  notfound: { title: 'Not found', kicker: '404', desc: 'That address does not exist on this LearnLoop server.' },
 };
 
-function setMeta(key, title) {
-  const entry = META[key];
-  const t = title || (entry && entry[0]) || SITE;
-  document.title = t;
-  const desc = entry && entry[1];
-  if (desc) {
+function setPage(title, kicker) {
+  const t = document.getElementById('pagetitle');
+  const k = document.getElementById('pagekicker');
+  if (t && title) t.textContent = title;
+  if (k && kicker !== undefined) k.textContent = kicker || '';
+}
+
+function setMeta(key, title, kicker) {
+  const entry = META[key] || {};
+  const t = title || entry.title || SITE;
+  document.title = t.includes('LearnLoop') ? t : `${t} · LearnLoop`;
+  setPage(t, kicker !== undefined ? kicker : (entry.kicker || ''));
+  if (entry.desc) {
     let tag = document.querySelector('meta[name="description"]');
     if (!tag) {
       tag = document.createElement('meta');
       tag.setAttribute('name', 'description');
       document.head.appendChild(tag);
     }
-    tag.setAttribute('content', desc);
+    tag.setAttribute('content', entry.desc);
   }
   const og = document.querySelector('meta[property="og:title"]');
-  if (og) og.setAttribute('content', t);
+  if (og) og.setAttribute('content', document.title);
 }
 
 /* -------------------------------------------------------- consent + counting */
@@ -263,17 +271,62 @@ function highlightPython(code) {
 
 
 /* -------------------------------------------------------------------- shell */
+function markActive(view) {
+  document.querySelectorAll('#nav a').forEach(a => {
+    if (a.dataset.view === view) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  });
+  document.querySelectorAll('#tabbar a').forEach(a => {
+    if (a.dataset.view === view) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  });
+}
+
+/* The rail's progress card: done / total, the bar, and what comes next. */
+function paintRailProgress() {
+  const box = $('#railprogress');
+  const count = $('#navcount');
+  if (!box) return;
+  const p = S.plan;
+  if (!S.user || !p) { box.hidden = true; if (count) count.hidden = true; return; }
+  const next = (p.sessions || []).find(s => !s.done);
+  box.hidden = false;
+  box.innerHTML = `
+    <div class="rp-top">
+      <span class="rp-num">${p.done_count}<span> / ${p.count}</span></span>
+      <span class="rp-label">${p.percent}% done</span>
+    </div>
+    <div class="bar thin"><i style="width:${p.percent}%"></i></div>
+    <div class="rp-next">${next
+      ? `Next: <b>S${String(next.n).padStart(2, '0')}</b> · ${esc(next.block)}`
+      : 'Every session is done.'}</div>`;
+  if (count) {
+    count.hidden = false;
+    count.textContent = `${p.done_count}/${p.count}`;
+  }
+}
+
 function paintChrome() {
   const nav = $('#nav'), chip = $('#userchip'), sel = $('#coursesel');
-  if (!S.user) {
+  const tabs = $('#tabbar');
+  const signedIn = !!S.user;
+  if (!signedIn) {
     nav.hidden = true; chip.hidden = true; sel.hidden = true;
-    $('#brandsub').textContent = ''; return;
+    if (tabs) tabs.hidden = true;
+    $('#brandsub').textContent = '';
+    paintRailProgress();
+    return;
   }
   document.body.classList.remove('auth-view');
   nav.hidden = false; chip.hidden = false;
+  if (tabs) tabs.hidden = false;
   $('#username').innerHTML = esc(S.user.username)
     + (S.user.role === 'admin' ? ' <span class="badge admin">admin</span>' : '');
-  $('#avatar').textContent = (S.user.username || '?').slice(0, 1).toUpperCase();
+  const initial = (S.user.username || '?').slice(0, 1).toUpperCase();
+  $('#avatar').textContent = initial;
+  const avm = $('#avatarm');
+  if (avm) avm.textContent = initial;
+  if (tabs) tabs.hidden = false;
   $('#navadmin').hidden = S.user.role !== 'admin';
   $('#navsettings').hidden = S.user.role !== 'admin';
 
@@ -289,8 +342,42 @@ function paintChrome() {
     sel.hidden = true;
   }
   const cur = S.courses.find(c => c.slug === S.course);
-  $('#brandsub').textContent = cur ? '· ' + cur.title : '';
-  document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('active', a.dataset.view === S.view));
+  $('#brandsub').textContent = cur ? cur.title : '';
+  markActive(S.view === 'session' ? 'plan' : S.view);
+  paintRailProgress();
+}
+
+/* Mobile drawer: the rail on small screens, opened from the bar, the avatar or "More". */
+function setDrawer(open) {
+  document.body.classList.toggle('nav-open', open);
+  const scrim = $('#scrim');
+  if (scrim) scrim.hidden = !open;
+  ['#railopen', '#usermenu'].forEach(sel => {
+    const el = $(sel);
+    if (el) el.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  if (open) {
+    const first = document.querySelector('#nav a');
+    if (first) first.focus();
+  }
+}
+
+function wireShell() {
+  const open = () => setDrawer(true);
+  ['#railopen', '#usermenu', '#tabmore'].forEach(sel => {
+    const el = $(sel);
+    if (el) el.onclick = open;
+  });
+  const close = () => setDrawer(false);
+  ['#railclose'].forEach(sel => { const el = $(sel); if (el) el.onclick = close; });
+  const scrim = $('#scrim');
+  if (scrim) scrim.onclick = close;
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && document.body.classList.contains('nav-open')) close();
+  });
+  document.querySelectorAll('#nav a, #tabbar a').forEach(a => {
+    a.addEventListener('click', () => { if (window.innerWidth <= 1080) close(); });
+  });
 }
 
 async function loadCourses() {
@@ -317,28 +404,56 @@ async function refreshPlan() {
 }
 
 /* --------------------------------------------------------------------- auth */
+/* The signed-out front door: a short product statement beside the form. */
+function authHero() {
+  return `
+    <section class="auth-hero">
+      <a class="brand" href="/"><span class="mark" aria-hidden="true"></span>LearnLoop</a>
+      <h1>A study plan you can <em>actually finish</em>.</h1>
+      <p>Turn a guide into dated sessions — read it, hear it, write it down, then prove it
+         with exercises that are graded on the server.</p>
+      <ul class="auth-points">
+        <li>
+          <span class="ap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 3v3M16 3v3"/></svg></span>
+          <div><b>Planned, dated sessions</b><span>Every session has a date, a page range and one deliverable.</span></div>
+        </li>
+        <li>
+          <span class="ap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="2.6" y="14" width="4.4" height="6.4" rx="1.6"/><rect x="17" y="14" width="4.4" height="6.4" rx="1.6"/></svg></span>
+          <div><b>Read, listen, keep notes</b><span>Split PDFs or clean reader text, narration, a timer and a note box that saves to your vault.</span></div>
+        </li>
+        <li>
+          <span class="ap-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.5L7 19M17 4.5L15 19M4.5 9h16M3.5 15h16"/></svg></span>
+          <div><b>Prove it, don't just read it</b><span>Chapter questions with explanations and lab exercises graded against hidden tests.</span></div>
+        </li>
+      </ul>
+    </section>`;
+}
+
 function renderSetup() {
   S.view = 'setup'; paintChrome(); document.body.classList.add('auth-view');
   setMeta('setup');
   app().innerHTML = `
-  <div class="auth-wrap"><div class="card">
-    <h1>First run</h1>
-    <p class="muted small">No accounts exist yet. Create the administrator — this account approves everyone else.</p>
-    <form id="setupform" novalidate>
-      <div class="errsummary" role="alert" tabindex="-1" hidden></div>
-      <label for="u">Admin username</label>
-      <input id="u" name="username" autocomplete="username" placeholder="e.g. seeker" required>
-      <label for="e">Email (optional)</label>
-      <input id="e" name="email" type="email" autocomplete="email">
-      <label for="p">Password</label>
-      <input id="p" name="password" type="password" autocomplete="new-password" required aria-describedby="p-hint">
-      <p class="field-hint" id="p-hint">8+ characters. Stored as a scrypt hash, never as text.</p>
-      <div style="height:16px"></div>
-      <button class="primary" id="go" type="submit" style="width:100%">Create administrator</button>
-    </form>
-    <p class="small dim" style="margin-top:14px">Using LearnLoop means you accept the
-      <a href="/terms">terms</a> and the <a href="/privacy">privacy policy</a>.</p>
-  </div></div>`;
+  <div class="auth-split">
+    ${authHero()}
+    <div class="card auth-card">
+      <h1>First run</h1>
+      <p class="muted small">No accounts exist yet. Create the administrator — this account approves everyone else.</p>
+      <form id="setupform" novalidate>
+        <div class="errsummary" role="alert" tabindex="-1" hidden></div>
+        <label for="u">Admin username</label>
+        <input id="u" name="username" autocomplete="username" placeholder="e.g. seeker" required>
+        <label for="e">Email (optional)</label>
+        <input id="e" name="email" type="email" autocomplete="email">
+        <label for="p">Password</label>
+        <input id="p" name="password" type="password" autocomplete="new-password" required aria-describedby="p-hint">
+        <p class="field-hint" id="p-hint">8+ characters. Stored as a scrypt hash, never as text.</p>
+        <div style="height:16px"></div>
+        <button class="primary" id="go" type="submit" style="width:100%">Create administrator</button>
+      </form>
+      <p class="auth-legal">Using LearnLoop means you accept the
+        <a href="/terms">terms</a> and the <a href="/privacy">privacy policy</a>.</p>
+    </div>
+  </div>`;
 
   wireField($('#u'), RULES.username);
   wireField($('#e'), RULES.email);
@@ -374,38 +489,40 @@ function renderAuth(mode = 'login') {
   const isLogin = mode === 'login';
   setMeta(isLogin ? 'login' : 'signup');
   app().innerHTML = `
-  <div class="auth-wrap"><div class="card">
-    <h1>${isLogin ? 'Sign in' : 'Request an account'}</h1>
-    <p class="muted small">${isLogin
-      ? 'Your study plans, split PDFs, narrated lectures and auto-graded exercises.'
-      : 'An administrator approves every new account before it can sign in.'}</p>
-    <form id="authform" novalidate>
-      <div class="errsummary" role="alert" tabindex="-1" hidden></div>
-      <label for="u">Username</label>
-      <input id="u" name="username" autocomplete="username" required>
-      ${isLogin ? '' : `<label for="e">Email (optional)</label>
-      <input id="e" name="email" type="email" autocomplete="email">`}
-      <label for="p">Password</label>
-      <input id="p" name="password" type="password" required
-             autocomplete="${isLogin ? 'current-password' : 'new-password'}"
-             aria-describedby="p-hint">
-      <p class="field-hint" id="p-hint">${isLogin ? 'At least 8 characters.' : '8+ characters. Pick something you do not reuse elsewhere.'}</p>
-      <div class="sr-only" aria-hidden="true">
-        <label for="company">Company</label>
-        <input id="company" name="company" tabindex="-1" autocomplete="off">
-      </div>
-      <div style="height:16px"></div>
-      <button class="primary" id="go" type="submit" style="width:100%">${isLogin ? 'Sign in' : 'Request account'}</button>
-    </form>
-    <p class="small dim" style="margin-top:14px">
-      ${isLogin
-        ? 'No account yet? <a href="#/signup">Request one</a>.'
-        : 'Already approved? <a href="#/login">Sign in</a>.'}
-    </p>
-    <p class="small dim">By continuing you accept the <a href="/terms">terms</a> and the
-      <a href="/privacy">privacy policy</a>. One essential cookie keeps you signed in; you can
-      change the traffic-counting choice in Settings.</p>
-  </div></div>`;
+  <div class="auth-split">
+    ${authHero()}
+    <div class="card auth-card">
+      <h1>${isLogin ? 'Sign in' : 'Request an account'}</h1>
+      <p class="muted small">${isLogin
+        ? 'Your plan, your notes and your graded exercises.'
+        : 'An administrator approves every new account before it can sign in.'}</p>
+      <form id="authform" novalidate>
+        <div class="errsummary" role="alert" tabindex="-1" hidden></div>
+        <label for="u">Username</label>
+        <input id="u" name="username" autocomplete="username" required>
+        ${isLogin ? '' : `<label for="e">Email (optional)</label>
+        <input id="e" name="email" type="email" autocomplete="email">`}
+        <label for="p">Password</label>
+        <input id="p" name="password" type="password" required
+               autocomplete="${isLogin ? 'current-password' : 'new-password'}"
+               aria-describedby="p-hint">
+        <p class="field-hint" id="p-hint">${isLogin ? 'At least 8 characters.' : '8+ characters. Pick something you do not reuse elsewhere.'}</p>
+        <div class="sr-only" aria-hidden="true">
+          <label for="company">Company</label>
+          <input id="company" name="company" tabindex="-1" autocomplete="off">
+        </div>
+        <div style="height:16px"></div>
+        <button class="primary" id="go" type="submit" style="width:100%">${isLogin ? 'Sign in' : 'Request account'}</button>
+      </form>
+      <p class="small dim" style="margin-top:14px">
+        ${isLogin
+          ? 'No account yet? <a href="#/signup">Request one</a>.'
+          : 'Already approved? <a href="#/login">Sign in</a>.'}
+      </p>
+      <p class="auth-legal">By continuing you accept the <a href="/terms">terms</a> and the
+        <a href="/privacy">privacy policy</a>. One essential cookie keeps you signed in.</p>
+    </div>
+  </div>`;
 
   const started = Date.now();
   wireField($('#u'), RULES.username);
@@ -486,62 +603,90 @@ async function login(username, password) {
 }
 
 /* ---------------------------------------------------------------------- plan */
-function sessionCard(s, todayN) {
+function sessionCard(s, nextN) {
   const cls = ['sess'];
   if (s.done) cls.push('done');
-  if (s.n === todayN) cls.push('today');
-  return `<div class="${cls.join(' ')}" data-n="${s.n}">
+  if (s.n === nextN) cls.push('today');
+  const marks = [
+    s.n === nextN && !s.done ? '<span class="chip chip--ok">next up</span>' : '',
+    s.has_file ? '<span class="tag">pdf</span>' : '<span class="tag">no pdf</span>',
+    (s.exercise_slugs || []).length
+      ? `<span class="tag">${s.exercises_passed}/${s.exercise_slugs.length} ex</span>` : '',
+    s.notes ? `<span class="tag">${s.notes} note${s.notes > 1 ? 's' : ''}</span>` : '',
+    s.minutes_spent ? `<span class="tag">${s.minutes_spent} min</span>` : '',
+  ].filter(Boolean).join('');
+  return `<div class="${cls.join(' ')}" data-n="${s.n}" role="link" tabindex="0">
     <span class="n">S${String(s.n).padStart(2, '0')}</span>
-    <div class="blk">${esc(s.block)}</div>
-    <div class="meta">${esc(fmtDate(s.date))} · ${s.minutes} min · p${esc(s.pages)}</div>
-    <div class="marks">
-      ${s.done ? '<span class="tag ok">done</span>' : ''}
-      ${s.has_file ? '<span class="tag">pdf</span>' : '<span class="tag">no pdf</span>'}
-      ${(s.exercise_slugs || []).length ? `<span class="tag">${s.exercises_passed}/${s.exercise_slugs.length} ex</span>` : ''}
-      ${s.notes ? `<span class="tag">${s.notes} note${s.notes > 1 ? 's' : ''}</span>` : ''}
+    <div>
+      <div class="blk">${esc(s.block)}</div>
+      <div class="meta">${esc(fmtDate(s.date))} · ${s.minutes} min${s.pages ? ' · p' + esc(s.pages) : ''}</div>
     </div>
+    <div class="marks">${marks}</div>
   </div>`;
 }
 
 function renderPlan() {
-  S.view = 'plan'; paintChrome(); setMeta('plan');
+  S.view = 'plan';
   const p = S.plan;
-  if (!p) { app().innerHTML = '<div class="empty">No plan loaded.</div>'; return; }
+  if (!p) { paintChrome(); setMeta('plan'); app().innerHTML = '<div class="empty">No plan loaded.</div>'; return; }
+  setMeta('plan', 'Plan', p.course.title);
+  paintChrome();
   const next = p.sessions.find(s => !s.done);
   const weeks = {};
   p.sessions.forEach(s => { (weeks[s.week] ||= []).push(s); });
+  const hoursLeft = Math.max(0, Math.round((p.total_minutes - p.minutes_done) / 60));
+  const exPct = p.exercise_total ? Math.round(100 * p.exercise_passed / p.exercise_total) : 0;
 
   const hero = next ? `
-    <section class="card hero">
-      <div>
-        <div class="kicker">${esc(p.course.title)} · next up</div>
-        <h1>Session ${next.n} of ${p.count} — ${esc(next.block)}</h1>
-        <p>${esc(next.what)}</p>
-        <div class="row" style="margin-bottom:14px">
-          <span class="pill">${next.minutes} min</span>
-          ${next.pages ? `<span class="pill">pages ${esc(next.pages)}</span>` : ''}
-          <span class="pill amber">week ${next.week}</span>
-          ${p.exercise_total ? `<span class="pill green">${p.exercise_passed}/${p.exercise_total} exercises passing</span>` : ''}
-        </div>
-        <div class="small muted" style="margin-bottom:14px"><b style="color:var(--text)">Deliverable:</b> ${esc(next.deliverable)}</div>
-        <div class="row">
-          <button class="primary" id="open">Open session</button>
-          <button class="ghost" id="markdone">Mark done</button>
-          ${(next.exercise_slugs || []).length ? '<button class="ghost" id="toex">Exercises for this chapter</button>' : ''}
-        </div>
+    <section class="panel next">
+      <p class="kicker">Next up · week ${next.week} · session ${next.n} of ${p.count}</p>
+      <h2 class="next-title">${esc(next.block)}</h2>
+      <p>${esc(next.what)}</p>
+      <div class="row" style="margin-bottom:16px">
+        <span class="chip chip--info">${next.minutes} min planned</span>
+        ${next.pages ? `<span class="chip">pages ${esc(next.pages)}</span>` : ''}
+        ${p.exercise_total ? `<span class="chip chip--ok">${p.exercise_passed}/${p.exercise_total} exercises passing</span>` : ''}
       </div>
-      <div class="stat card" style="box-shadow:none">
-        <div class="dim small">Progress</div>
-        <div class="big">${p.done_count}<span class="dim" style="font-size:18px"> / ${p.count}</span></div>
-        <div class="bar"><i style="width:${p.percent}%"></i></div>
-        <div class="small muted">${p.percent}% · ${Math.round((p.total_minutes - p.minutes_done) / 60)} h left</div>
+      <p class="small muted" style="margin-bottom:18px">
+        <b style="color:var(--text)">Deliverable:</b> ${esc(next.deliverable)}
+      </p>
+      <div class="next-actions">
+        <button class="primary" id="open">Open session</button>
+        <button class="ghost" id="markdone">Mark done</button>
+        ${(next.exercise_slugs || []).length ? '<button class="ghost" id="toex">Chapter exercises</button>' : ''}
       </div>
     </section>` : `
-    <section class="card hero">
-      <div><div class="kicker">${esc(p.course.title)}</div><h1>All ${p.count} sessions done</h1>
-      <p>Nothing left in this course.</p></div>
-      <div class="stat card" style="box-shadow:none"><div class="big">100%</div><div class="bar"><i style="width:100%"></i></div></div>
+    <section class="panel next">
+      <p class="kicker">${esc(p.course.title)}</p>
+      <h2 class="next-title">All ${p.count} sessions done</h2>
+      <p>Nothing left in this course. Revisit any session below, or start another course from the rail.</p>
+      <div class="next-actions"><a class="btnlink primary" href="#/exercises">Keep the exercises sharp</a></div>
     </section>`;
+
+  const stats = `
+    <aside class="next-stats">
+      <div class="panel kpi">
+        <div class="kpi-label">Sessions done</div>
+        <div class="kpi-num">${p.done_count}<span> / ${p.count}</span></div>
+        <div class="bar thin"><i style="width:${p.percent}%"></i></div>
+        <div class="kpi-label">${p.percent}% · ${hoursLeft} h of study left</div>
+      </div>
+      <div class="panel kpi">
+        <div class="kpi-label">Exercises passing</div>
+        <div class="kpi-num">${p.exercise_passed}<span> / ${p.exercise_total || 0}</span></div>
+        <div class="bar thin"><i style="width:${exPct}%"></i></div>
+        <div class="kpi-label">${p.minutes_spent} min tracked on this course</div>
+      </div>
+    </aside>`;
+
+  const adminBar = S.user.role === 'admin' ? `
+    <div class="panel" style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+      <span class="chip chip--flat">Maintenance</span>
+      <button class="small" id="split">Split the guide into session PDFs</button>
+      <button class="small" id="syncall">Upload all PDFs to the NAS</button>
+      <span class="dim small">${p.sessions.filter(s => s.has_file).length} of ${p.count} session PDFs ready</span>
+    </div>` : `
+    <p class="dim small" style="margin-top:16px">${p.sessions.filter(s => s.has_file).length} of ${p.count} session PDFs ready</p>`;
 
   const groups = Object.keys(weeks).sort((a, b) => a - b).map(w => `
     <div class="week-group">
@@ -550,21 +695,24 @@ function renderPlan() {
       <div class="sessions">${weeks[w].map(s => sessionCard(s, next && next.n)).join('')}</div>
     </div>`).join('');
 
-  app().innerHTML = `<div class="coursetitle"><h2>${esc(p.course.title)}</h2>
-      <span class="muted small">${esc(p.course.subtitle || '')}</span></div>` + hero + `
-    <div class="row" style="margin-top:22px">
-      ${S.user.role === 'admin' ? `<button id="split">Split the guide into session PDFs</button>
-      <button id="syncall">Upload all PDFs to the NAS</button>` : ''}
-      <span class="dim small">${p.sessions.filter(s => s.has_file).length} of ${p.count} session PDFs ready</span>
-    </div>` + groups;
+  app().innerHTML = `
+    <div class="coursetitle"><h2>${esc(p.course.title)}</h2>
+      <span class="muted small">${esc(p.course.subtitle || '')}</span></div>
+    <div class="dash">${hero}${stats}</div>
+    ${adminBar}
+    ${groups}`;
 
+  const openSession = (n) => { location.hash = '#/session/' + n; };
   document.querySelectorAll('.sess').forEach(el => {
-    el.onclick = () => { location.hash = '#/session/' + el.dataset.n; };
+    el.onclick = () => openSession(el.dataset.n);
+    el.onkeydown = (ev) => {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openSession(el.dataset.n); }
+    };
     el.onmouseenter = () => prefetchSession(el.dataset.n);
   });
   if (next) {
     prefetchSession(next.n);
-    $('#open').onclick = () => { location.hash = '#/session/' + next.n; };
+    $('#open').onclick = () => openSession(next.n);
     $('#markdone').onclick = () => markDone(next.n, true, renderPlan);
     if ($('#toex')) $('#toex').onclick = () => { location.hash = '#/exercises'; };
   }
@@ -741,77 +889,83 @@ async function openPlayer(info, n) {
 }
 
 async function renderSession(n) {
-  S.view = 'session'; paintChrome();
+  S.view = 'session';
   n = Number(n);
   if (!S.plan) await refreshPlan();
   const s = S.plan.sessions.find(x => x.n === n);
   if (!s) {
-    setMeta('notfound', `Session ${n} not found · LearnLoop`);
-    app().innerHTML = `<div class="card notfound"><p class="kicker">404</p>
+    setMeta('notfound', 'Session not found', '404');
+    paintChrome();
+    app().innerHTML = `<div class="panel notfound"><p class="kicker">404</p>
       <h1>No session ${esc(String(n))}</h1>
       <p class="muted">This course has sessions 1 to ${S.plan ? S.plan.count : '?'}. The link may be old.</p>
       <a class="btnlink primary" href="#/plan" style="margin-top:14px">Back to the plan</a></div>`;
     return;
   }
   S.session = s;
-  setMeta('session', `S${String(n).padStart(2, '0')} · ${s.block} — LearnLoop`);
+  setMeta('session', `S${String(n).padStart(2, '0')} · ${s.block}`, `${S.plan.course.title} · week ${s.week}`);
+  paintChrome();
   clearTimer();
   const t = ensureTimer();
   t.n = n; t.total = s.minutes * 60; t.remaining = s.minutes * 60; t.elapsed = 0; t.logged = 0; t.running = false;
 
   app().innerHTML = `
-  <div class="row" style="margin-bottom:16px">
-    <button class="ghost small" id="back">← Plan</button>
-    <span class="dim small">Session ${n} of ${S.plan.count} · ${esc(fmtDate(s.date))} · week ${s.week}</span>
+  <div class="row row--between" style="margin-bottom:14px">
+    <div class="row">
+      <a class="btnlink" href="#/plan" style="min-height:34px;padding:6px 12px;font-size:13px">Back to plan</a>
+      <span class="dim small">Session ${n} of ${S.plan.count} · ${esc(fmtDate(s.date))}</span>
+    </div>
+    <span class="chip ${s.done ? 'chip--ok' : 'chip--info'}">${s.done ? 'done' : 'in progress'}</span>
   </div>
   <div class="reader">
-    <div class="pdfpane">
-      <div class="pdfbar">
+    <div class="paper pdfpane">
+      <div class="paper-bar pdfbar">
         <span>S${String(n).padStart(2, '0')} · ${esc(s.block)}</span>
-        <span style="flex:1"></span>
-        <span>pages ${esc(s.pages)}</span>
-        <button class="ghost small" id="watch" title="Narrated lesson video">${icon('video')}Watch</button>
-        <button class="ghost small" id="listen" title="Narrated audio of this chapter">${icon('headphones')}Listen</button>
-        <a href="/api/pdf/${n}${q()}" target="_blank" class="small">open in tab</a>
+        <span class="spacer"></span>
+        ${s.pages ? `<span class="dim">p${esc(s.pages)}</span>` : ''}
+        <button class="ghost" id="watch" title="Narrated lesson video">${icon('video')}Watch</button>
+        <button class="ghost" id="listen" title="Narrated audio of this chapter">${icon('headphones')}Listen</button>
+        <a class="btnlink" href="/api/pdf/${n}${q()}" target="_blank" rel="noopener"
+           style="min-height:30px;padding:4px 10px;font-size:12px">PDF</a>
       </div>
       <div id="pdfhost"></div>
     </div>
     <div class="side">
-      <div class="card">
-        <h3>What to do</h3><p class="small" style="margin:8px 0 0">${esc(s.what)}</p>
-        <div style="height:12px"></div><h3>Deliverable</h3>
-        <p class="small" style="margin:8px 0 0;color:#dbe6f2">${esc(s.deliverable)}</p>
+      <div class="rail-card">
+        <h3>What to do</h3>
+        <p class="small" style="margin:8px 0 0">${esc(s.what)}</p>
+        <h3 style="margin-top:16px">Deliverable</h3>
+        <p class="small" style="margin:8px 0 0;color:#d7e3f1">${esc(s.deliverable)}</p>
       </div>
-      <div class="card">
-        <h3>Timer</h3>
-        <div class="timer" style="margin-top:10px">
+      <div class="rail-card">
+        <div class="row row--between"><h3>Timer</h3><span class="dim small">${s.minutes} min planned</span></div>
+        <div class="timer">
           <div class="clock" id="clock">${fmtClock(s.minutes * 60)}</div>
           <div class="row"><button class="primary small" id="tstart">Start</button><button class="small" id="treset">Reset</button></div>
         </div>
-        <div class="small dim" style="margin-top:8px">Planned ${s.minutes} min · tracked ${s.minutes_spent} min</div>
+        <div class="small dim" style="margin-top:10px">${s.minutes_spent} min tracked</div>
       </div>
-      <div class="card">
+      <div class="rail-card">
         <h3>Notes</h3>
         <textarea id="note" placeholder="What clicked? What is still fuzzy? Paste the deliverable here."></textarea>
-        <div class="row" style="margin-top:10px;justify-content:space-between">
+        <div class="row row--between" style="margin-top:10px">
           <label class="small" style="margin:0;display:flex;gap:7px;align-items:center">
             <input type="checkbox" id="deliv" style="width:auto"> deliverable done</label>
           <button class="primary small" id="savenote">Save to vault</button>
         </div>
-        <div id="notelist" style="margin-top:6px"></div>
+        <div id="notelist"></div>
       </div>
-      <div class="card">
+      <div class="rail-card">
         <h3>Progress${S.user.role === 'admin' ? ' &amp; sync' : ''}</h3>
         <div class="row" style="margin-top:10px">
-          <button class="small ${s.done ? '' : 'primary'}" id="toggle">${s.done ? 'Reopen session' : 'Mark done'}</button>
-          ${S.user.role === 'admin' ? '<button class="small" id="nasup">Upload PDF to NAS</button>' : ''}
+          <button class="${s.done ? 'small' : 'primary small'}" id="toggle">${s.done ? 'Reopen session' : 'Mark done'}</button>
+          ${S.user.role === 'admin' ? '<button class="small" id="nasup">Upload PDF</button>' : ''}
         </div>
         <div class="small dim" id="nasmsg" style="margin-top:8px"></div>
       </div>
     </div>
   </div>`;
 
-  $('#back').onclick = () => { location.hash = '#/plan'; };
   $('#listen').onclick = async () => {
     try {
       const r = await api(`/api/lecture?course=${encodeURIComponent(S.course)}&session=${n}`);
@@ -884,7 +1038,7 @@ async function renderTextReader(n) {
       else html += `<p>${esc(b.text)}</p>`;
     }
     if (inUl) html += '</ul>';
-    host.innerHTML = `<article class="reader-text">${html}</article>`;
+    host.innerHTML = `<article class="prose">${html}</article>`;
   } catch (err) {
     host.innerHTML = `<div class="empty">Could not load the text (${esc(err.message)}).<br>
       <a href="/api/pdf/${n}${q()}" target="_blank">Open the PDF instead</a></div>`;
@@ -958,12 +1112,19 @@ async function renderExercises() {
           </a>`).join('')}</div>
       </div>`).join('');
 
+    const pct = r.total ? Math.round(100 * r.passed / r.total) : 0;
     app().innerHTML = `
-      <div class="row" style="margin-bottom:6px">
-        <h2 style="margin:0">Exercises</h2>
-        <span class="pill ${r.passed === r.total ? 'green' : ''}">${r.passed} / ${r.total} passing</span>
-      </div>
-      <p class="muted small">Chapter questions are multiple choice — pick an answer and get told why. Lab exercises are graded on the server: your code runs against hidden tests and you get a result per test.</p>
+      <section class="panel" style="display:grid;gap:10px;margin-bottom:20px">
+        <div class="row row--between">
+          <div>
+            <div class="kpi-label dim small">Exercises passing</div>
+            <div class="kpi-num" style="font-size:26px">${r.passed}<span> / ${r.total}</span></div>
+          </div>
+          <span class="chip ${r.total && r.passed === r.total ? 'chip--ok' : 'chip--info'}">${pct}% complete</span>
+        </div>
+        <div class="bar thin"><i style="width:${pct}%"></i></div>
+        <p class="muted small" style="margin:2px 0 0">Chapter questions are multiple choice — pick an answer and get told why. Lab exercises are graded on the server: your code runs against hidden tests.</p>
+      </section>
       ${blocks}`;
   } catch (err) {
     app().innerHTML = `<div class="empty">${esc(err.message)}</div>`;
@@ -976,14 +1137,14 @@ async function renderExercise(slug) {
   let ex;
   try { ex = await api('/api/exercise/' + encodeURIComponent(slug)); }
   catch (err) {
-    setMeta('notfound', 'Exercise not found · LearnLoop');
-    app().innerHTML = `<div class="card notfound"><p class="kicker">404</p>
+    setMeta('notfound', 'Exercise not found', '404');
+    app().innerHTML = `<div class="panel notfound"><p class="kicker">404</p>
       <h1>That exercise is gone</h1>
       <p class="muted">${esc(err.message)}</p>
       <a class="btnlink primary" href="#/exercises" style="margin-top:14px">Back to exercises</a></div>`;
     return;
   }
-  setMeta('exercise', `${ex.title} · LearnLoop`);
+  setMeta('exercise', ex.title, ex.chapter >= 100 ? `Lab ${ex.chapter - 100}` : `Chapter ${ex.chapter}`);
 
   // an exercise opened by URL may belong to a different course: follow it
   if (ex.course_id && S.courses.length) {
@@ -1009,71 +1170,82 @@ async function renderExercise(slug) {
   const chapterLabel = ex.chapter >= 100 ? `Lab ${ex.chapter - 100}` : `Chapter ${ex.chapter}`;
 
   app().innerHTML = `
-  <div class="row" style="margin-bottom:14px">
-    <button class="ghost small" id="back">← Exercises</button>
-    <span class="dim small">${chapterLabel} · ${esc(ex.difficulty)}</span>
-    <span style="flex:1"></span>
-    ${isAnswer || isMcq ? '' : '<button class="small" id="hints">Hints</button>'}
+  <div class="row row--between" style="margin-bottom:14px">
+    <div class="row">
+      <a class="btnlink" href="#/exercises" style="min-height:34px;padding:6px 12px;font-size:13px">Exercises</a>
+      <span class="chip">${chapterLabel}</span>
+      <span class="chip chip--flat">${esc(ex.difficulty)}</span>
+    </div>
+    ${isAnswer || isMcq ? '' : '<button class="small ghost" id="hints">Hints</button>'}
   </div>
-  <div class="exwrap">
-    <div class="card exprompt">
-      <h1 style="font-size:20px">${esc(ex.title)}</h1>
+  <div class="exwrap${isAnswer ? ' exwrap--single' : ''}">
+    <div class="panel exprompt">
+      <h2 style="font-size:19px">${esc(ex.title)}</h2>
       <pre class="prompttext">${esc(ex.prompt)}</pre>
       <div id="hintbox" hidden>
-        <h3>Hints</h3>
-        <ul class="small">${(ex.hints || []).map(h => `<li>${esc(h)}</li>`).join('') || '<li>No hints.</li>'}</ul>
+        <h3 style="margin-top:16px">Hints</h3>
+        <ul class="small muted">${(ex.hints || []).map(h => `<li>${esc(h)}</li>`).join('') || '<li>No hints.</li>'}</ul>
       </div>
-      ${isAnswer || isMcq ? '' : `<h3 style="margin-top:16px">Tests that will run</h3>
+      ${isAnswer || isMcq ? '' : `<h3 style="margin-top:18px">Tests that will run</h3>
       <ul class="small dim">${(ex.tests || []).map(t => `<li>${esc(t.name)}</li>`).join('')}</ul>`}
     </div>
     ${isMcq ? `
-    <div class="card">
+    <div class="panel">
       <h3>Choose one</h3>
-      <div id="choices" class="choices" style="margin-top:10px"></div>
-      <div class="row" style="margin-top:12px">
+      <div id="choices" class="choices" style="margin-top:12px"></div>
+      <div class="row" style="margin-top:14px">
         <button class="primary" id="check">Check answer</button>
         <span class="small dim" id="mcqstate"></span>
       </div>
       <div id="results" style="margin-top:12px"></div>
-      <div id="explain" hidden style="margin-top:14px">
+      <div id="explain" hidden style="margin-top:16px">
         <h3>Why</h3>
-        <p class="small" style="color:#dbe6f2;margin-top:6px"></p>
+        <p class="small" style="color:#d7e3f1;margin-top:6px"></p>
       </div>
     </div>` : isAnswer ? `
-    <div class="card">
+    <div class="panel">
       <h3>Your turn</h3>
-      <p class="small muted" style="margin-top:6px">Work it out on paper or in a note first — reading an answer you did not try teaches you nothing. Then compare.</p>
-      <div class="row" style="margin-top:12px">
+      <p class="small muted" style="margin-top:8px">Work it out on paper or in a note first — reading an answer you did not try teaches you nothing. Then compare.</p>
+      <div class="row" style="margin-top:14px">
         <button class="primary" id="reveal">Reveal the answer</button>
-        <button class="small" id="done">Mark as done</button>
+        <button class="ghost" id="done">Mark as done</button>
       </div>
-      <div id="answerbox" hidden style="margin-top:14px">
+      <div id="answerbox" hidden style="margin-top:16px">
         <h3>The book's answer</h3>
-        <pre class="prompttext" style="color:#dbe6f2">${esc(ex.answer || 'No answer recorded.')}</pre>
+        <pre class="prompttext" style="color:#d7e3f1">${esc(ex.answer || 'No answer recorded.')}</pre>
       </div>
       <div id="results" style="margin-top:12px"></div>
+    </div>
+    <div class="panel">
+      <h3>How this works</h3>
+      <ol class="steps">
+        <li><div><b>Write it down first</b><span>One or two sentences in your own words. Analysing your own attempt is what makes the book's answer stick.</span></div></li>
+        <li><div><b>Reveal and compare</b><span>Note what you missed and what you got right — that difference is the lesson.</span></div></li>
+        <li><div><b>Mark it done</b><span>It counts in your progress, and the next exercise is one click away.</span></div></li>
+      </ol>
     </div>` : `
-    <div class="card">
-      <div class="row" style="justify-content:space-between;margin-bottom:8px">
+    <div class="panel panel--flush">
+      <div class="panel-head">
         <h3 style="margin:0">Your code</h3>
         <span class="small dim" id="draftstate"></span>
       </div>
-      <div class="editor" id="editorbox">
-        <pre class="hl" id="hl" aria-hidden="true"><code id="hlcode"></code></pre>
-        <textarea id="code" class="codearea" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off"></textarea>
+      <div style="padding:14px">
+        <div class="editor" id="editorbox">
+          <pre class="hl" id="hl" aria-hidden="true"><code id="hlcode"></code></pre>
+          <textarea id="code" class="codearea" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off"></textarea>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="primary" id="run">Run tests</button>
+          <button class="ghost small" id="reset">Reset</button>
+          <span class="small dim" id="runsize"></span>
+          <span class="small dim" style="margin-left:auto">Tab indents · Ctrl+Enter runs</span>
+        </div>
+        <div id="results" style="margin-top:14px"></div>
       </div>
-      <div class="row" style="margin-top:10px">
-        <button class="primary" id="run">Run tests</button>
-        <button class="small" id="reset">Reset to starter</button>
-        <span class="small dim" id="runsize"></span>
-        <span class="small dim" style="margin-left:auto">Tab indents · Shift+Tab dedents · Ctrl+Enter runs</span>
-      </div>
-      <div id="results" style="margin-top:14px"></div>
     </div>`}
   </div>`;
 
   if (isAnswer) {
-    $('#back').onclick = () => { location.hash = '#/exercises'; };
     $('#reveal').onclick = () => {
       const box = $('#answerbox');
       box.hidden = !box.hidden;
@@ -1093,7 +1265,6 @@ async function renderExercise(slug) {
   }
 
   if (isMcq) {
-    $('#back').onclick = () => { location.hash = '#/exercises'; };
     const box = $('#choices');
     box.innerHTML = (ex.options || []).map((o, i) => `
       <label class="choice"><input type="radio" name="mcq" value="${i}"><span>${esc(o)}</span></label>`).join('');
@@ -1229,7 +1400,6 @@ async function renderExercise(slug) {
 
   updateSize();
 
-  $('#back').onclick = () => { location.hash = '#/exercises'; };
   $('#hints').onclick = () => { const b = $('#hintbox'); b.hidden = !b.hidden; };
   $('#reset').onclick = () => { ta.value = ex.starter || ''; paint(); saveDraft(); updateSize(); };
   $('#run').onclick = async (e) => {
@@ -1268,9 +1438,9 @@ async function renderExercise(slug) {
 function renderSearch(qstr = '') {
   S.view = 'search'; paintChrome(); setMeta('search');
   app().innerHTML = `
-    <div class="card">
-      <h1>Search</h1>
-      <p class="muted small">Sessions, notes and exercises in ${esc(S.course || 'this course')}.</p>
+    <div class="panel">
+      <h2>Find a session, note or exercise</h2>
+      <p class="muted small">Searching in ${esc(S.course || 'this course')}.</p>
       <div class="row" style="margin-top:12px">
         <input id="q" value="${esc(qstr)}" placeholder="softmax, loop, string, DataFrame…" style="flex:1">
         <button class="primary" id="go">Search</button>
@@ -1313,7 +1483,7 @@ async function renderAdmin() {
     const pending = u.users.filter(x => x.status === 'pending');
     const peak = stats && stats.by_day.reduce((m, d) => Math.max(m, d.views), 0);
     const traffic = !stats ? '' : `
-      <div class="card" style="margin-top:16px">
+      <div class="panel" style="margin-top:16px">
         <div class="row" style="justify-content:space-between;align-items:baseline">
           <h3 style="margin:0">Traffic</h3>
           <span class="small dim">first-party, no cookies · counted only for visitors who allowed it</span>
@@ -1333,9 +1503,9 @@ async function renderAdmin() {
         ${stats.referrers.length ? `<p class="small dim" style="margin-top:12px">Referrers: ${stats.referrers.map(r => `${esc(r.ref)} (${r.views})`).join(' · ')}</p>` : ''}
       </div>`;
     app().innerHTML = `
-      <div class="card">
+      <div class="panel">
         <div class="row" style="justify-content:space-between">
-          <div><h1>Accounts</h1>
+          <div><h2>Accounts</h2>
           <p class="muted small">${pending.length ? `<b style="color:var(--amber)">${pending.length} request${pending.length > 1 ? 's' : ''} waiting.</b>` : 'Nothing waiting for approval.'}</p></div>
           <button class="small" id="reload">Refresh</button>
         </div>
@@ -1360,7 +1530,7 @@ async function renderAdmin() {
         </div>
       </div>
       ${traffic}
-      <div class="card" style="margin-top:16px">
+      <div class="panel" style="margin-top:16px">
         <h3>Recent activity</h3>
         <div class="tablewrap" style="margin-top:10px">
         <table><tbody>${ev.events.map(e => `<tr>
@@ -1392,8 +1562,8 @@ async function renderSettings() {
     const cfg = await api('/api/config');
     const site = cfg.site || {};
     app().innerHTML = `
-      <div class="card">
-        <h1>Settings</h1>
+      <div class="panel">
+        <h2>Instance settings</h2>
         <p class="muted small">Paths and the fnOS NAS connection. On the NAS the password comes from a 0600 environment file, not this form.</p>
         <div class="grid2" style="margin-top:14px">
           <div><label for="workbook">Workbook (.xlsx, default course)</label><input id="workbook" value="${esc(cfg.workbook)}"></div>
@@ -1402,7 +1572,7 @@ async function renderSettings() {
           <div><label for="owner">Owner username</label><input id="owner" value="${esc(cfg.owner_username)}"></div>
         </div>
       </div>
-      <div class="card" style="margin-top:16px">
+      <div class="panel" style="margin-top:16px">
         <h3>Site and legal pages</h3>
         <p class="small muted" style="margin-top:6px">These values fill in the privacy policy, the terms, the canonical URL and the sitemap.</p>
         <div class="grid2" style="margin-top:6px">
@@ -1419,7 +1589,7 @@ async function renderSettings() {
           <button class="small" id="cookiechoice">Cookie choice…</button>
         </div>
       </div>
-      <div class="card" style="margin-top:16px">
+      <div class="panel" style="margin-top:16px">
         <h3>NAS (fnOS · WebDAV)</h3>
         <div class="grid2" style="margin-top:6px">
           <div><label for="lan">LAN URL</label><input id="lan" value="${esc(cfg.nas.lan_url)}"></div>
@@ -1506,7 +1676,7 @@ async function uploadAll(btn, log) {
 function renderNotFound() {
   S.view = 'notfound'; paintChrome(); setMeta('notfound');
   app().innerHTML = `
-    <div class="card notfound">
+    <div class="panel notfound">
       <p class="kicker">404</p>
       <h1>That page is not here</h1>
       <p class="muted">The link may be old, or the session or exercise it pointed at no longer
@@ -1559,7 +1729,7 @@ async function boot() {
     try { sessionStorage.removeItem('ll-sw-reloaded'); } catch (e) { /* private mode */ }
   } catch (err) {
     setMeta('notfound', 'LearnLoop is unreachable');
-    app().innerHTML = `<div class="card notfound"><h1>Cannot reach LearnLoop</h1>
+    app().innerHTML = `<div class="panel notfound"><h1>Cannot reach LearnLoop</h1>
       <p class="muted">${esc(err.message)}</p>
       <button class="primary" id="retry" style="margin-top:14px">Try again</button></div>`;
     const retry = $('#retry');
@@ -1633,5 +1803,6 @@ if ('serviceWorker' in navigator) {
     } catch (e) { /* the app works without a service worker */ }
   });
 }
+wireShell();
 boot();
 ensureFreshBuild();

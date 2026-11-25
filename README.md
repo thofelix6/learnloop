@@ -27,8 +27,21 @@ machine-specific, so they live in that file (mode 0600, never committed) — not
 | `app/site.py` | Security headers and CSP, HTTPS enforcement, robots.txt, sitemap.xml, legal pages, 404 |
 | `app/db.py` | SQLite schema and queries, including the aggregate `pageviews` counter |
 | `app/grader.py` | Runs submitted code in a separate process with CPU/memory limits |
-| `static/` | Single-page app, styles, icons, service worker, legal pages |
+| `static/` | Single-page app, styles, icons, fonts, service worker, legal pages |
 | `tools/` | Rebuildable assets: brand images and the palette contrast audit |
+| `design-system/learnloop/MASTER.md` | The visual system: tokens, type scale, layout, component rules |
+
+## The look
+
+A dark **study console**: a 268 px rail (course, sections, live progress), a dense plan of session
+rows, and an editorial reading pane. **Outfit** (display/numerals) and **Public Sans** (UI and
+reading) are self-hosted variable fonts in `static/fonts/` (59 KB together, SIL OFL — see
+`static/fonts/OFL.txt`); there is no external font or CDN request. One accent — "run green" —
+carries action and progress, everything else is ink and slate. Tokens, contrast ratios and the
+reasoning live in `design-system/learnloop/MASTER.md`.
+
+Mobile gets the same rail as a drawer plus a bottom tab bar; the reading pane drops to a single
+column and keeps a 66-character measure.
 
 ## Site, legal pages and SEO
 

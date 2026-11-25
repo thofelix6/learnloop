@@ -22,12 +22,10 @@
 </head>
 <body class="docbody">
 
-<header id="topbar">
-  <a class="brand" href="/" style="text-decoration:none;color:inherit">
-    <span class="dot" aria-hidden="true"></span>LearnLoop
-  </a>
+<header class="docbar">
+  <a class="brand" href="/"><span class="mark" aria-hidden="true"></span>LearnLoop</a>
   <span class="spacer"></span>
-  <nav class="footnav" aria-label="Site">
+  <nav class="minilinks" aria-label="Site">
     <a href="/privacy" aria-current="page">Privacy</a>
     <a href="/terms">Terms</a>
     <a href="/">Open the app</a>
@@ -85,7 +83,9 @@
     <h2 id="not-collected">What is deliberately not collected</h2>
     <ul>
       <li>No advertising identifiers, no cross-site tracking, no tracking pixels.</li>
-      <li>No third-party analytics, fonts, CDNs or embeds. The fonts are the ones already on your device; pdf.js is served from this server.</li>
+      <li>No third-party analytics, CDNs or embeds. The two typefaces (Outfit and Public Sans, both
+      open-licensed) are served from this server, not fetched from a font CDN; pdf.js is served from
+      this server too.</li>
       <li>No precise location, no contact list, no microphone or camera access.</li>
       <li>The traffic counter stores <b>no IP address and no user agent</b>, and cannot follow you across sites.</li>
     </ul>
@@ -150,10 +150,10 @@
   </article>
 </main>
 
-<footer id="sitefooter">
+<footer class="docfoot">
   <div class="foot-in">
     <span class="dim small">© {{YEAR}} {{SITE_NAME}}</span>
-    <nav class="footnav" aria-label="Site">
+    <nav class="minilinks" aria-label="Site">
       <a href="/privacy">Privacy</a>
       <a href="/terms">Terms</a>
       <a href="/sitemap.xml">Sitemap</a>

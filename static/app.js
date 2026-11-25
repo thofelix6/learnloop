@@ -1556,6 +1556,7 @@ async function boot() {
     paintChrome();
     route();
     trackView();
+    try { sessionStorage.removeItem('ll-sw-reloaded'); } catch (e) { /* private mode */ }
   } catch (err) {
     setMeta('notfound', 'LearnLoop is unreachable');
     app().innerHTML = `<div class="card notfound"><h1>Cannot reach LearnLoop</h1>
@@ -1575,5 +1576,22 @@ $('#logout').onclick = async () => {
 $('#coursesel').onchange = (e) => switchCourse(e.target.value);
 window.addEventListener('hashchange', () => { route(); trackView(); });
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+/* Replace an older service worker as soon as possible. The shell is versioned with
+   ?v=, but a tab that was open before a deploy would otherwise keep the old worker
+   (and its cached shell) for up to a day. */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
+      reg.update().catch(() => {});
+      let reloading = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (reloading || sessionStorage.getItem('ll-sw-reloaded') === '1') return;
+        reloading = true;
+        sessionStorage.setItem('ll-sw-reloaded', '1');
+        location.reload();
+      });
+    } catch (e) { /* the app works without a service worker */ }
+  });
+}
 boot();

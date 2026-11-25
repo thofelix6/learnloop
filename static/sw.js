@@ -1,6 +1,6 @@
 // LearnLoop service worker: the shell is cached, everything live stays live.
 // Bump CACHE when the shell changes so clients pick up the new files.
-const CACHE = 'learnloop-v2';
+const CACHE = 'learnloop-v3';
 const SHELL = [
   '/', '/static/style.css', '/static/app.js', '/static/icon.svg',
   '/static/icon-192.png', '/static/apple-touch-icon.png', '/manifest.webmanifest',

@@ -107,13 +107,27 @@ def _cache_control(path: str) -> str | None:
     if path.startswith('/static/vendor/'):
         return 'public, max-age=31536000, immutable'
     if path.startswith('/static/'):
-        # no content hashes in the filenames, so keep this short enough to redeploy
-        return 'public, max-age=3600'
+        # Filenames carry no content hash, so every request revalidates (ETag -> 304).
+        # Pages reference them with ?v=<asset version> as well; the belt and braces
+        # matter because a stale script against fresh HTML is how a deploy half-applies.
+        return 'no-cache'
     if path in ('/', '/privacy', '/terms') or path.endswith('.html'):
         return 'no-cache'
     if path in ('/sw.js', '/manifest.webmanifest', '/robots.txt', '/sitemap.xml'):
         return 'no-cache'
     return None
+
+
+def asset_version() -> str:
+    """A stamp that changes whenever the app shell changes, for ?v= on asset URLs."""
+    stamp = 0
+    for name in ('app.js', 'style.css', 'sw.js'):
+        try:
+            stat = (STATIC / name).stat()
+        except OSError:
+            continue
+        stamp = max(stamp, int(stat.st_mtime), stat.st_size)
+    return str(stamp or 1)
 
 
 def _public_base(request: Request) -> str:
@@ -158,7 +172,7 @@ def _sitemap(request: Request) -> Response:
                     headers={'Cache-Control': 'no-cache'})
 
 
-def render_page(name: str, request: Request | None = None) -> HTMLResponse:
+def render_page(name: str, request: Request | None = None, status_code: int = 200) -> HTMLResponse:
     """Serve a static document with the instance's own site facts filled in.
 
     Tokens keep the HTML readable while letting every deployment state its real
@@ -184,6 +198,7 @@ def render_page(name: str, request: Request | None = None) -> HTMLResponse:
         '{{EFFECTIVE_DATE}}': info.get('effective_date') or today,
         '{{OPERATOR}}': operator,
         '{{JURISDICTION}}': str(info.get('jurisdiction') or '').strip(),
+        '{{ASSET_V}}': asset_version(),
         '{{YEAR}}': str(datetime.now(timezone.utc).year),
     }
     text = (STATIC / name).read_text(encoding='utf-8')
@@ -192,7 +207,7 @@ def render_page(name: str, request: Request | None = None) -> HTMLResponse:
     jurisdiction = str(info.get('jurisdiction') or '').strip()
     text = text.replace('{{JURISDICTION_CLAUSE}}', f' ({escape(jurisdiction)})' if jurisdiction else '')
     text = text.replace('{{CONTACT}}', contact)
-    return HTMLResponse(text, headers={'Cache-Control': 'no-cache'})
+    return HTMLResponse(text, status_code=status_code, headers={'Cache-Control': 'no-cache'})
 
 
 def _doc_page(name: str, request: Request | None = None) -> HTMLResponse:
@@ -255,8 +270,6 @@ def install(app: FastAPI) -> None:
         if request.url.path.startswith('/api/'):
             detail = getattr(exc, 'detail', 'not found')
             return JSONResponse({'detail': detail}, status_code=404)
-        page = STATIC / '404.html'
-        if not page.is_file():
+        if not (STATIC / '404.html').is_file():
             return HTMLResponse('<h1>404</h1><p>Not found.</p>', status_code=404)
-        return FileResponse(str(page), media_type='text/html', status_code=404,
-                            headers={'Cache-Control': 'no-store'})
+        return render_page('404.html', request, status_code=404)

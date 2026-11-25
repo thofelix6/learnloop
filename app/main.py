@@ -14,10 +14,11 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import config, courses, db, grader, nas, notes, pdfsplit, plan, security
+from . import config, courses, db, grader, nas, notes, pdfsplit, plan, security, site
 
 app = FastAPI(title='LearnLoop', docs_url=None, redoc_url=None)
 app.add_middleware(GZipMiddleware, minimum_size=500)
+site.install(app)
 
 COOKIE = 'll_session'
 TOKEN_DAYS = 30
@@ -25,6 +26,10 @@ _CSRF_HEADER = 'x-learnloop'
 DEFAULT_COURSE = 'build-llm'
 AUDIO_DIR = config.DATA / 'audio'
 VIDEO_DIR = config.DATA / 'video'
+
+# account fields are validated on the server too - the browser can be bypassed
+USERNAME_RE = re.compile(r'^[A-Za-z0-9._-]{3,32}$')
+EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s.]+\.[A-Za-z]{2,}$')
 
 db.init()
 courses.ensure_default_course()
@@ -119,10 +124,76 @@ def _clear_failures(ip: str) -> None:
     _ATTEMPTS.pop(ip, None)
 
 
+# ------------------------------------------------------- account validation
+def _cookie_secure(request: Request) -> bool:
+    """Only mark the session cookie Secure when the browser is really on HTTPS."""
+    return site.is_https(request)
+
+
+def _username_error(username: str) -> str | None:
+    if not USERNAME_RE.match(username or ''):
+        return 'username must be 3-32 characters: letters, digits, dot, dash or underscore'
+    return None
+
+
+def _password_error(password: str) -> str | None:
+    if len(password) < 8:
+        return 'password needs 8+ characters'
+    if len(password) > 200:
+        return 'password is too long'
+    return None
+
+
+def _email_error(email: str) -> str | None:
+    if not email:
+        return None
+    if len(email) > 200 or not EMAIL_RE.match(email):
+        return 'that email address does not look right'
+    return None
+
+
+# ------------------------------------------------------------------ anti-spam
+# Signups are rare on a study app: a quiet hourly cap per address, a honeypot
+# field and a minimum form dwell time stop scripted signups without a captcha.
+_SIGNUPS: dict[str, list[float]] = defaultdict(list)
+_MAX_SIGNUPS = 5
+_SIGNUP_WINDOW = 3600
+_MIN_FORM_MS = 1500
+
+
+def _signup_allowed(ip: str) -> bool:
+    now_ts = time.time()
+    recent = [t for t in _SIGNUPS[ip] if now_ts - t < _SIGNUP_WINDOW]
+    _SIGNUPS[ip] = recent
+    return len(recent) < _MAX_SIGNUPS
+
+
+def _record_signup(ip: str) -> None:
+    _SIGNUPS[ip].append(time.time())
+
+
+def _looks_automated(body: dict) -> bool:
+    """True for a filled honeypot or a form submitted in less than a second."""
+    if str(body.get('company') or body.get('website') or '').strip():
+        return True
+    try:
+        started = int(body.get('t') or 0)
+    except (TypeError, ValueError):
+        started = 0
+    if started:
+        if started > 10 ** 12:                     # milliseconds
+            elapsed_ms = time.time() * 1000 - started
+        else:                                       # seconds
+            elapsed_ms = (time.time() - started) * 1000
+        if elapsed_ms < _MIN_FORM_MS:
+            return True
+    return False
+
+
 # ----------------------------------------------------------------------- pages
 @app.get('/')
-def index():
-    return FileResponse(str(config.STATIC / 'index.html'))
+def index(request: Request):
+    return site.render_page('index.html', request)
 
 
 @app.get('/manifest.webmanifest')
@@ -153,10 +224,12 @@ async def api_setup(request: Request):
     body = await request.json()
     username = (body.get('username') or '').strip()
     password = body.get('password') or ''
-    if len(username) < 3 or len(password) < 8:
-        raise HTTPException(400, 'username needs 3+ chars and password 8+')
+    email = (body.get('email') or '').strip()
+    for error in (_username_error(username), _password_error(password), _email_error(email)):
+        if error:
+            raise HTTPException(400, error)
     pw_hash, salt = security.hash_password(password)
-    uid = db.create_user(username, pw_hash, salt, body.get('email') or '',
+    uid = db.create_user(username, pw_hash, salt, email,
                          role='admin', status='approved', approved_by='setup')
     config.update({'owner_username': username})
     db.log_event('setup', f'admin {username} created', uid)
@@ -191,29 +264,41 @@ async def api_login(request: Request):
     db.log_event('login', username, row['id'])
     resp = _json({'ok': True, 'user': _user_json(row)})
     resp.set_cookie(COOKIE, token, max_age=TOKEN_DAYS * 86400, httponly=True,
-                    samesite='lax', path='/')
+                    samesite='lax', secure=_cookie_secure(request), path='/')
     return resp
 
 
 @app.post('/api/signup')
 async def api_signup(request: Request):
+    """Request an account. Answers the same way when it looks automated."""
     if not _csrf_ok(request):
         raise HTTPException(400, 'missing header')
+    ip = _client_ip(request)
     body = await request.json()
     username = (body.get('username') or '').strip()
     password = body.get('password') or ''
-    if len(username) < 3:
-        raise HTTPException(400, 'username needs 3+ characters')
-    if len(password) < 8:
-        raise HTTPException(400, 'password needs 8+ characters')
+    email = (body.get('email') or '').strip()
+
+    def _soft_ok():
+        return _json({'ok': True, 'status': 'pending',
+                      'message': 'Account created. An admin has to approve it before you can sign in.'})
+
+    # silent rejections: honeypot, impossible speed, hourly cap
+    if _looks_automated(body) or not _signup_allowed(ip):
+        db.log_event('signup_blocked', f'{ip} (filtered)')
+        return _soft_ok()
+
+    for error in (_username_error(username), _password_error(password), _email_error(email)):
+        if error:
+            raise HTTPException(400, error)
     if db.get_user(username):
         raise HTTPException(409, 'that username is taken')
+    _record_signup(ip)
     pw_hash, salt = security.hash_password(password)
-    uid = db.create_user(username, pw_hash, salt, (body.get('email') or '').strip(),
+    uid = db.create_user(username, pw_hash, salt, email,
                          role='user', status='pending')
     db.log_event('signup', f'{username} requested an account', uid)
-    return _json({'ok': True, 'status': 'pending',
-                  'message': 'Account created. An admin has to approve it before you can sign in.'})
+    return _soft_ok()
 
 
 @app.post('/api/logout')
@@ -222,7 +307,8 @@ def api_logout(request: Request):
     if token:
         db.drop_token(security.token_fingerprint(token))
     resp = _json({'ok': True})
-    resp.delete_cookie(COOKIE, path='/')
+    resp.delete_cookie(COOKIE, path='/', secure=_cookie_secure(request), httponly=True,
+                       samesite='lax')
     return resp
 
 
@@ -854,6 +940,14 @@ async def api_config_post(request: Request):
         raise HTTPException(400, 'missing header')
     body = await request.json()
     patch = {k: body[k] for k in ('workbook', 'guide', 'vault', 'owner_username') if k in body}
+    site_patch = {}
+    incoming_site = body.get('site') or {}
+    for key in ('name', 'tagline', 'public_url', 'contact_email', 'effective_date',
+                'operator', 'jurisdiction'):
+        if key in incoming_site:
+            site_patch[key] = str(incoming_site[key] or '').strip()
+    if site_patch:
+        patch['site'] = site_patch
     nas_patch = {}
     incoming = body.get('nas') or {}
     for key in ('lan_url', 'public_url', 'user', 'remote_dir', 'active'):
@@ -872,6 +966,40 @@ async def api_config_post(request: Request):
 def api_events(request: Request):
     require_admin(request)
     return _json({'events': [dict(r) for r in db.recent_events(60)]})
+
+
+# ---------------------------------------------------------------- analytics
+@app.post('/api/hit')
+async def api_hit(request: Request):
+    """Count one page view. Cookieless and aggregate: no IP, no user agent, no id."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    raw = str(body.get('path') or '')
+    path = raw.split('?')[0].split('#')[0][:120]
+    if not path.startswith('/'):
+        path = '/'
+    path = re.sub(r'/\d+', '/:n', path)               # session ids are not interesting
+    ref = str(body.get('ref') or '')
+    ref_host = ''
+    if ref:
+        try:
+            from urllib.parse import urlsplit
+            ref_host = urlsplit(ref).hostname or ''
+        except Exception:
+            ref_host = ''
+    if ref_host and ref_host.lower() == (request.headers.get('host') or '').split(':')[0].lower():
+        ref_host = ''                                  # internal navigation is not a referral
+    db.add_pageview(path, datetime.now().date().isoformat(), ref_host)
+    return _json({'ok': True})       # tiny body: sent with sendBeacon
+
+
+@app.get('/api/analytics')
+def api_analytics(request: Request, days: int = 14):
+    require_admin(request)
+    days = max(7, min(90, int(days or 14)))
+    return _json(db.pageview_stats(days))
 
 
 @app.get('/api/health')

@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy policy · LearnLoop</title>
+<meta name="description" content="What LearnLoop stores, why, and for how long — and what it deliberately does not collect. No advertising, no third-party trackers, one essential cookie.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0a0d12">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{BASE}}/privacy">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="{{SITE_NAME}}">
+<meta property="og:title" content="Privacy policy · LearnLoop">
+<meta property="og:description" content="What LearnLoop stores, why, and for how long. No advertising, no third-party trackers.">
+<meta property="og:url" content="{{BASE}}/privacy">
+<meta property="og:image" content="{{BASE}}/static/og.jpg">
+<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="docbody">
+
+<header id="topbar">
+  <a class="brand" href="/" style="text-decoration:none;color:inherit">
+    <span class="dot" aria-hidden="true"></span>LearnLoop
+  </a>
+  <span class="spacer"></span>
+  <nav class="footnav" aria-label="Site">
+    <a href="/privacy" aria-current="page">Privacy</a>
+    <a href="/terms">Terms</a>
+    <a href="/">Open the app</a>
+  </nav>
+</header>
+
+<main class="docmain">
+  <article class="doc">
+    <p class="kicker">Privacy policy</p>
+    <h1>Your study data stays on this server</h1>
+    <p class="lede">
+      LearnLoop is a self-hosted study app. {{SITE_NAME}} is run by {{OPERATOR}}; there is no
+      advertising, no third-party analytics and no tracking script of any kind on these pages.
+      This document says exactly what is stored, why, and how to get rid of it.
+    </p>
+    <p class="docmeta">Effective {{EFFECTIVE_DATE}} · applies to <code>{{PUBLIC_HOST}}</code></p>
+
+    <h2 id="what">What is stored, and why</h2>
+    <table class="doctable">
+      <thead><tr><th>Data</th><th>Why</th><th>Kept</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>Account</b>: username, optional email address, password hash (scrypt) and its salt</td>
+          <td>To sign you in and let an administrator approve your account. The password itself is never stored.</td>
+          <td>Until the account is deleted</td>
+        </tr>
+        <tr>
+          <td><b>Session record</b>: a hash of the sign-in token, its expiry, and the IP address and browser string of the device that signed in</td>
+          <td>To keep you signed in across visits and to let you or the administrator recognise a session.</td>
+          <td>30 days, then expired and pruned</td>
+        </tr>
+        <tr>
+          <td><b>Study progress</b>: which sessions you marked done, minutes tracked, and exercise attempts including any code you submitted and the test results</td>
+          <td>That is the point of the app: your plan, your progress and your graded exercises.</td>
+          <td>Until the account is deleted</td>
+        </tr>
+        <tr>
+          <td><b>Notes</b> you write on a session</td>
+          <td>Saved in LearnLoop and, when the instance is configured that way, also written as a Markdown file into the study vault folder chosen by the operator.</td>
+          <td>Until you delete the note or the account</td>
+        </tr>
+        <tr>
+          <td><b>Traffic counts</b>: page path, the day, and (if you arrived from another site) that site's hostname</td>
+          <td>To know whether the site is used and which pages matter. This is aggregate counting, not visitor tracking.</td>
+          <td>Rolling; there is no per-visitor record to expire</td>
+        </tr>
+        <tr>
+          <td><b>Server logs</b>: the request line, timestamp, status code and IP address</td>
+          <td>Operating the server: diagnosing errors and abuse.</td>
+          <td>Per the server's log rotation</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 id="not-collected">What is deliberately not collected</h2>
+    <ul>
+      <li>No advertising identifiers, no cross-site tracking, no tracking pixels.</li>
+      <li>No third-party analytics, fonts, CDNs or embeds. The fonts are the ones already on your device; pdf.js is served from this server.</li>
+      <li>No precise location, no contact list, no microphone or camera access.</li>
+      <li>The traffic counter stores <b>no IP address and no user agent</b>, and cannot follow you across sites.</li>
+    </ul>
+
+    <h2 id="cookies">Cookies and browser storage</h2>
+    <p>
+      There is <b>one cookie</b>: <code>ll_session</code>. It is strictly necessary — it holds the
+      signed-in session and nothing else. It is <code>HttpOnly</code>, <code>SameSite=Lax</code>,
+      marked <code>Secure</code> whenever the site is served over HTTPS, and expires after 30 days
+      or when you sign out. Because it is essential, it is set whether or not you allow traffic counting.
+    </p>
+    <p>
+      The app also keeps a few values in your browser's <code>localStorage</code>. These never leave
+      your device unless you act in the app: the selected course, your cookie choice, unsaved code
+      drafts per account, and where you paused a lecture. Clearing site data removes them.
+    </p>
+    <p>
+      Traffic counting is optional. If you choose <b>Essential only</b> in the banner, the page-view
+      beacon is not sent; the choice is remembered in <code>localStorage</code> and can be changed
+      from Settings, or by clearing site data.
+    </p>
+
+    <h2 id="third-parties">Who else is involved</h2>
+    <p>
+      Nobody by default. The site is hosted on {{OPERATOR}}'s own server and reached either on the
+      local network or through a private network tunnel that terminates TLS. That network provider
+      sees the connection metadata any network operator sees — IP address, time, byte counts — but not
+      the content of your pages, which is encrypted in transit. No data is sold or shared for marketing.
+    </p>
+
+    <h2 id="rights">Your choices and rights</h2>
+    <ul>
+      <li><b>Access and export</b>: your notes and progress are visible in the app; the administrator can export the database on request.</li>
+      <li><b>Correction</b>: the administrator can change your email address, role or status.</li>
+      <li><b>Deletion</b>: an administrator can delete your account, which removes the account record and its stored progress, attempts and notes from the LearnLoop database. Markdown notes already written into the study vault are ordinary files in a folder the operator controls and must be deleted separately.</li>
+      <li><b>Withdraw consent</b> for traffic counting at any time; the counter then records nothing for your visits.</li>
+    </ul>
+    <p>Requests go to {{CONTACT}}.</p>
+
+    <h2 id="security">Security</h2>
+    <p>
+      Passwords are hashed with scrypt, session tokens are random and stored only as hashes, forms are
+      protected against cross-site request forgery, sign-in attempts and sign-ups are rate limited, and
+      code submitted for the auto-graded exercises runs in a separate, resource-limited process.
+      Pages are served over HTTPS with a strict content security policy and HSTS. No system is perfect:
+      report a problem instead of exploiting it.
+    </p>
+
+    <h2 id="children">Children</h2>
+    <p>
+      The app is a study tool for the people the operator invites. It is not directed at children and
+      does not knowingly collect their data.
+    </p>
+
+    <h2 id="changes">Changes</h2>
+    <p>
+      If this policy changes, the effective date above changes with it. Material changes will be
+      announced in the app.
+    </p>
+
+    <p class="docback"><a href="/">Back to LearnLoop</a> · <a href="/terms">Terms and conditions</a></p>
+  </article>
+</main>
+
+<footer id="sitefooter">
+  <div class="foot-in">
+    <span class="dim small">© {{YEAR}} {{SITE_NAME}}</span>
+    <nav class="footnav" aria-label="Site">
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="/sitemap.xml">Sitemap</a>
+    </nav>
+  </div>
+</footer>
+
+</body>
+</html>

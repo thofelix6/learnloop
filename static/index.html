@@ -3,19 +3,48 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>LearnLoop</title>
+
+<title>LearnLoop · plan, study and prove it</title>
+<meta name="description" content="LearnLoop turns a study guide into a dated plan of sessions: split PDFs, narrated lectures, a timer, notes and auto-graded exercises that show what you actually learned.">
+<meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0a0d12">
-<link rel="manifest" href="/manifest.webmanifest">
+<meta name="robots" content="index, follow, max-image-preview:large">
+
+<link rel="canonical" href="{{BASE}}/">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{SITE_NAME}}">
+<meta property="og:title" content="LearnLoop · plan, study and prove it">
+<meta property="og:description" content="A dated study plan with split PDFs, narrated lectures, a session timer, notes, and auto-graded exercises that prove what you learned.">
+<meta property="og:url" content="{{BASE}}/">
+<meta property="og:image" content="{{BASE}}/static/og.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="LearnLoop wordmark with the loop mark, on a dark grid">
+<meta property="og:locale" content="en">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="LearnLoop · plan, study and prove it">
+<meta name="twitter:description" content="A dated study plan with split PDFs, narrated lectures, a session timer, notes, and auto-graded exercises.">
+<meta name="twitter:image" content="{{BASE}}/static/og.jpg">
+
 <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/static/icon-192.png">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="preload" href="/static/style.css" as="style">
+<link rel="modulepreload" href="/static/app.js">
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
+<a class="skip" href="#app">Skip to content</a>
+
 <header id="topbar">
-  <div class="brand"><span class="dot"></span>LearnLoop<small id="brandsub"></small></div>
-  <select id="coursesel" hidden title="Switch course"></select>
-  <nav id="nav" hidden>
+  <div class="brand"><span class="dot" aria-hidden="true"></span>LearnLoop<small id="brandsub"></small></div>
+  <select id="coursesel" hidden title="Switch course" aria-label="Switch course"></select>
+  <nav id="nav" hidden aria-label="Main">
     <a href="#/plan" data-view="plan">Plan</a>
     <a href="#/exercises" data-view="exercises">Exercises</a>
     <a href="#/search" data-view="search">Search</a>
@@ -24,14 +53,50 @@
   </nav>
   <span class="spacer"></span>
   <div class="userchip" id="userchip" hidden>
-    <span class="avatar" id="avatar">?</span>
+    <span class="avatar" id="avatar" aria-hidden="true">?</span>
     <span id="username"></span>
     <button class="small ghost" id="logout">Sign out</button>
   </div>
 </header>
 
-<main id="app"><div class="empty"><span class="spin"></span></div></main>
-<div id="toast"></div>
+<main id="app"><div class="empty"><span class="spin" aria-hidden="true"></span><span class="sr-only">Loading LearnLoop</span></div></main>
+
+<footer id="sitefooter">
+  <div class="foot-in">
+    <span class="dim small">© {{YEAR}} {{SITE_NAME}} · {{TAGLINE}}</span>
+    <nav class="footnav" aria-label="Site">
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="/sitemap.xml">Sitemap</a>
+    </nav>
+  </div>
+</footer>
+
+<div id="consent" class="consent" role="region" aria-labelledby="consent-title" hidden>
+  <div class="consent-text">
+    <h2 id="consent-title">Cookies and traffic counts</h2>
+    <p id="consent-body">
+      LearnLoop sets one essential cookie to keep you signed in, and nothing else: no advertising,
+      no third-party scripts. If you allow it, we also count page views on our own server — the path
+      and the day only, with no IP address, no user agent and no identifier.
+      <a href="/privacy#cookies">Read the privacy policy</a>.
+    </p>
+  </div>
+  <div class="consent-actions">
+    <button class="primary small" id="consent-all">Allow traffic counts</button>
+    <button class="small ghost" id="consent-essential">Essential only</button>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<noscript>
+  <div class="card" style="max-width:640px;margin:40px auto">
+    <h1>LearnLoop needs JavaScript</h1>
+    <p class="muted">The study app is a client-side application. Enable JavaScript, or
+    <a href="/privacy">read the privacy policy</a> and the <a href="/terms">terms</a> instead.</p>
+  </div>
+</noscript>
 
 <script type="module" src="/static/app.js"></script>
 </body>

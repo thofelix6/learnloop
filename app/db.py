@@ -135,6 +135,17 @@ CREATE TABLE IF NOT EXISTS events (
     detail       TEXT,
     created_at   TEXT NOT NULL
 );
+
+-- First-party, cookieless traffic counts: a path, a day and a referrer host.
+-- No IP address, no user agent, no cookie id is ever written here.
+CREATE TABLE IF NOT EXISTS pageviews (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    path         TEXT NOT NULL,
+    day          TEXT NOT NULL,
+    ref_host     TEXT DEFAULT '',
+    created_at   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_pageviews_day ON pageviews (day);
 """
 
 
@@ -543,3 +554,40 @@ def recent_events(limit: int = 50):
     with cursor() as cur:
         cur.execute('SELECT * FROM events ORDER BY id DESC LIMIT ?', (limit,))
         return cur.fetchall()
+
+
+# ------------------------------------------------------------- pageviews
+def add_pageview(path: str, day: str, ref_host: str = '') -> None:
+    with cursor() as cur:
+        cur.execute('INSERT INTO pageviews (path, day, ref_host, created_at) VALUES (?,?,?,?)',
+                    (path, day, (ref_host or '')[:120], now()))
+
+
+def pageview_stats(days: int = 14) -> dict:
+    """Aggregate totals for the admin card. Reads only, no per-visitor detail."""
+    from datetime import date, timedelta
+
+    today = date.today()
+    start = (today - timedelta(days=days - 1)).isoformat()
+    with cursor() as cur:
+        cur.execute('SELECT COUNT(*) AS c FROM pageviews WHERE day=?', (today.isoformat(),))
+        views_today = int(cur.fetchone()['c'])
+        cur.execute('SELECT COUNT(*) AS c FROM pageviews WHERE day>=?',
+                    ((today - timedelta(days=6)).isoformat(),))
+        views_7d = int(cur.fetchone()['c'])
+        cur.execute('SELECT COUNT(*) AS c FROM pageviews WHERE day>=?',
+                    ((today - timedelta(days=29)).isoformat(),))
+        views_30d = int(cur.fetchone()['c'])
+        cur.execute("""SELECT day, COUNT(*) AS views FROM pageviews
+                       WHERE day>=? GROUP BY day ORDER BY day""", (start,))
+        by_day = [{'day': r['day'], 'views': int(r['views'])} for r in cur.fetchall()]
+        cur.execute("""SELECT path, COUNT(*) AS views FROM pageviews
+                       WHERE day>=? GROUP BY path ORDER BY views DESC LIMIT 10""", (start,))
+        top = [{'path': r['path'], 'views': int(r['views'])} for r in cur.fetchall()]
+        cur.execute("""SELECT ref_host, COUNT(*) AS views FROM pageviews
+                       WHERE day>=? AND ref_host<>'' GROUP BY ref_host
+                       ORDER BY views DESC LIMIT 5""", (start,))
+        refs = [{'ref': r['ref_host'], 'views': int(r['views'])} for r in cur.fetchall()]
+    return {'today': views_today, 'last_7_days': views_7d, 'last_30_days': views_30d,
+            'by_day': by_day, 'top_paths': top, 'referrers': refs, 'window_days': days}
+

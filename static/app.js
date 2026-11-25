@@ -9,6 +9,149 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const app = () => $('#app');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+/* ----------------------------------------------------------- page metadata */
+const SITE = 'LearnLoop';
+const META = {
+  plan: ['Plan · LearnLoop', 'Your dated study plan: every session, its deliverable, your progress and the exercises that prove it.'],
+  exercises: ['Exercises · LearnLoop', 'Chapter questions and server-graded lab exercises for this course.'],
+  exercise: ['Exercise · LearnLoop', 'One exercise, graded on the server against hidden tests.'],
+  search: ['Search · LearnLoop', 'Search sessions, notes and exercises in this course.'],
+  admin: ['Admin · LearnLoop', 'Approve accounts and review recent activity.'],
+  settings: ['Settings · LearnLoop', 'Paths, site details and the NAS connection.'],
+  login: ['Sign in · LearnLoop', 'Sign in to your study plan, split PDFs, narrated lectures and auto-graded exercises.'],
+  signup: ['Request an account · LearnLoop', 'Request a LearnLoop account. An administrator approves it before you can sign in.'],
+  setup: ['First run · LearnLoop', 'Create the administrator account for this LearnLoop instance.'],
+  notfound: ['Page not found · LearnLoop', 'That address does not exist on this LearnLoop server.'],
+};
+
+function setMeta(key, title) {
+  const entry = META[key];
+  const t = title || (entry && entry[0]) || SITE;
+  document.title = t;
+  const desc = entry && entry[1];
+  if (desc) {
+    let tag = document.querySelector('meta[name="description"]');
+    if (!tag) {
+      tag = document.createElement('meta');
+      tag.setAttribute('name', 'description');
+      document.head.appendChild(tag);
+    }
+    tag.setAttribute('content', desc);
+  }
+  const og = document.querySelector('meta[property="og:title"]');
+  if (og) og.setAttribute('content', t);
+}
+
+/* -------------------------------------------------------- consent + counting */
+const CONSENT_KEY = 'll-consent';
+function consentChoice() {
+  try { return localStorage.getItem(CONSENT_KEY) || ''; } catch (e) { return ''; }
+}
+
+function trackView() {
+  // Aggregate counting only, and only after the visitor chose "Allow traffic counts"
+  if (consentChoice() !== 'all') return;
+  if (!navigator.sendBeacon) return;
+  const path = (location.hash || '#/plan').replace(/^#/, '') || '/';
+  const body = new Blob([JSON.stringify({ path: path, ref: document.referrer || '' })],
+                        { type: 'application/json' });
+  try { navigator.sendBeacon('/api/hit', body); } catch (e) { /* counting is optional */ }
+}
+
+function initConsent() {
+  const banner = $('#consent');
+  if (!banner) return;
+  const choose = (value) => {
+    try { localStorage.setItem(CONSENT_KEY, value); } catch (e) { /* private mode */ }
+    banner.hidden = true;
+    document.body.classList.remove('has-consent');
+    if (value === 'all') trackView();
+  };
+  if (consentChoice()) { banner.hidden = true; return; }
+  banner.hidden = false;
+  document.body.classList.add('has-consent');
+  $('#consent-all').onclick = () => choose('all');
+  $('#consent-essential').onclick = () => choose('essential');
+}
+
+/* ------------------------------------------------------------------- icons */
+/* One visual family, drawn inline: emoji render differently on every platform
+   and are announced by screen readers as words. */
+const ICON_PATHS = {
+  play: '<path d="M8 5.5v13l10.5-6.5z" fill="currentColor" stroke="none"/>',
+  pause: '<rect x="7" y="5.5" width="3.4" height="13" rx="1" fill="currentColor" stroke="none"/>'
+    + '<rect x="13.6" y="5.5" width="3.4" height="13" rx="1" fill="currentColor" stroke="none"/>',
+  headphones: '<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="2.6" y="14" width="4.4" height="6.4" rx="1.6"/>'
+    + '<rect x="17" y="14" width="4.4" height="6.4" rx="1.6"/>',
+  video: '<rect x="2.6" y="6" width="12.4" height="12" rx="2.4"/><path d="M15 10.6l6-3.2v9.2l-6-3.2z"/>',
+};
+function icon(name) {
+  const body = ICON_PATHS[name];
+  if (!body) return '';
+  return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"`
+    + ` stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${body}</svg>`;
+}
+
+/* -------------------------------------------------------- form validation */
+const RULES = {
+  username: (v) => (/^[A-Za-z0-9._-]{3,32}$/.test((v || '').trim())
+    ? '' : 'Use 3-32 characters: letters, digits, dot, dash or underscore.'),
+  password: (v) => ((v || '').length >= 8 ? '' : 'Use at least 8 characters.'),
+  email: (v) => (!(v || '').trim() || /^[^@\s]+@[^@\s.]+\.[A-Za-z]{2,}$/.test((v || '').trim())
+    ? '' : 'That address does not look right.'),
+};
+
+function clearFieldError(input) {
+  if (!input) return;
+  input.removeAttribute('aria-invalid');
+  const err = document.getElementById(input.id + '-err');
+  if (err) { err.textContent = ''; err.hidden = true; }
+}
+
+function showFieldError(input, message) {
+  if (!input) return;
+  if (!message) { clearFieldError(input); return; }
+  input.setAttribute('aria-invalid', 'true');
+  let err = document.getElementById(input.id + '-err');
+  if (!err) {
+    err = document.createElement('span');
+    err.className = 'fielderr';
+    err.id = input.id + '-err';
+    input.insertAdjacentElement('afterend', err);
+  }
+  err.textContent = message;
+  err.hidden = false;
+  const described = (input.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean);
+  if (!described.includes(err.id)) {
+    described.push(err.id);
+    input.setAttribute('aria-describedby', described.join(' '));
+  }
+}
+
+/* Validate on blur and while typing after the first error, never on load. */
+function wireField(input, rule) {
+  if (!input || !rule) return;
+  const check = () => {
+    const msg = rule(input.value);
+    showFieldError(input, msg);
+    return !msg;
+  };
+  input.addEventListener('blur', check);
+  input.addEventListener('input', () => {
+    if (input.getAttribute('aria-invalid') === 'true') check();
+  });
+}
+
+function errorSummary(container, items) {
+  const box = container.querySelector('.errsummary');
+  if (!box) return;
+  if (!items.length) { box.hidden = true; box.innerHTML = ''; return; }
+  box.innerHTML = '<h2 id="errsum-title">There is a problem</h2><ul>'
+    + items.map(i => `<li><a href="#${i.id}">${esc(i.message)}</a></li>`).join('') + '</ul>';
+  box.hidden = false;
+  box.focus();
+}
+
 /* Warm the cache for a session's text/audio/notes before it is opened. */
 const _prefetched = new Set();
 function prefetchSession(n) {
@@ -176,57 +319,150 @@ async function refreshPlan() {
 /* --------------------------------------------------------------------- auth */
 function renderSetup() {
   S.view = 'setup'; paintChrome(); document.body.classList.add('auth-view');
+  setMeta('setup');
   app().innerHTML = `
   <div class="auth-wrap"><div class="card">
-    <div class="brand" style="margin-bottom:14px"><span class="dot"></span>LearnLoop</div>
     <h1>First run</h1>
     <p class="muted small">No accounts exist yet. Create the administrator — this account approves everyone else.</p>
-    <label>Admin username</label><input id="u" autocomplete="username" placeholder="e.g. seeker">
-    <label>Email (optional)</label><input id="e" type="email" autocomplete="email">
-    <label>Password (8+ characters)</label><input id="p" type="password" autocomplete="new-password">
-    <div style="height:16px"></div>
-    <button class="primary" id="go" style="width:100%">Create admin account</button>
+    <form id="setupform" novalidate>
+      <div class="errsummary" role="alert" tabindex="-1" hidden></div>
+      <label for="u">Admin username</label>
+      <input id="u" name="username" autocomplete="username" placeholder="e.g. seeker" required>
+      <label for="e">Email (optional)</label>
+      <input id="e" name="email" type="email" autocomplete="email">
+      <label for="p">Password</label>
+      <input id="p" name="password" type="password" autocomplete="new-password" required aria-describedby="p-hint">
+      <p class="field-hint" id="p-hint">8+ characters. Stored as a scrypt hash, never as text.</p>
+      <div style="height:16px"></div>
+      <button class="primary" id="go" type="submit" style="width:100%">Create administrator</button>
+    </form>
+    <p class="small dim" style="margin-top:14px">Using LearnLoop means you accept the
+      <a href="/terms">terms</a> and the <a href="/privacy">privacy policy</a>.</p>
   </div></div>`;
-  $('#go').onclick = async () => {
+
+  wireField($('#u'), RULES.username);
+  wireField($('#e'), RULES.email);
+  wireField($('#p'), RULES.password);
+
+  $('#setupform').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const form = $('#setupform');
+    const items = [];
+    [['u', RULES.username], ['e', RULES.email], ['p', RULES.password]].forEach(([id, rule]) => {
+      const input = $('#' + id);
+      const msg = rule(input.value);
+      showFieldError(input, msg);
+      if (msg) items.push({ id, message: msg });
+    });
+    errorSummary(form, items);
+    if (items.length) return;
+    const btn = $('#go');
+    btn.disabled = true;
     try {
       await api('/api/setup', { method: 'POST', body: { username: $('#u').value.trim(), email: $('#e').value.trim(), password: $('#p').value } });
       await login($('#u').value.trim(), $('#p').value);
-    } catch (err) { toast(err.message, true); }
+    } catch (err) {
+      toast(err.message, true);
+      errorSummary(form, [{ id: 'u', message: err.message }]);
+    }
+    btn.disabled = false;
   };
 }
 
 function renderAuth(mode = 'login') {
   S.view = mode; paintChrome(); document.body.classList.add('auth-view');
   const isLogin = mode === 'login';
+  setMeta(isLogin ? 'login' : 'signup');
   app().innerHTML = `
   <div class="auth-wrap"><div class="card">
-    <div class="brand" style="margin-bottom:14px"><span class="dot"></span>LearnLoop</div>
     <h1>${isLogin ? 'Sign in' : 'Request an account'}</h1>
     <p class="muted small">${isLogin
-      ? 'Your study plans, PDFs and auto-graded exercises.'
-      : 'New accounts need an administrator to approve them before they can sign in.'}</p>
-    <label>Username</label><input id="u" autocomplete="username">
-    ${isLogin ? '' : '<label>Email (optional)</label><input id="e" type="email" autocomplete="email">'}
-    <label>Password</label><input id="p" type="password" autocomplete="${isLogin ? 'current-password' : 'new-password'}">
-    <div style="height:16px"></div>
-    <button class="primary" id="go" style="width:100%">${isLogin ? 'Sign in' : 'Create account'}</button>
-    <div style="height:10px"></div>
-    <button class="ghost" id="swap" style="width:100%">${isLogin ? 'Need an account? Request one' : 'Already approved? Sign in'}</button>
+      ? 'Your study plans, split PDFs, narrated lectures and auto-graded exercises.'
+      : 'An administrator approves every new account before it can sign in.'}</p>
+    <form id="authform" novalidate>
+      <div class="errsummary" role="alert" tabindex="-1" hidden></div>
+      <label for="u">Username</label>
+      <input id="u" name="username" autocomplete="username" required>
+      ${isLogin ? '' : `<label for="e">Email (optional)</label>
+      <input id="e" name="email" type="email" autocomplete="email">`}
+      <label for="p">Password</label>
+      <input id="p" name="password" type="password" required
+             autocomplete="${isLogin ? 'current-password' : 'new-password'}"
+             aria-describedby="p-hint">
+      <p class="field-hint" id="p-hint">${isLogin ? 'At least 8 characters.' : '8+ characters. Pick something you do not reuse elsewhere.'}</p>
+      <div class="sr-only" aria-hidden="true">
+        <label for="company">Company</label>
+        <input id="company" name="company" tabindex="-1" autocomplete="off">
+      </div>
+      <div style="height:16px"></div>
+      <button class="primary" id="go" type="submit" style="width:100%">${isLogin ? 'Sign in' : 'Request account'}</button>
+    </form>
+    <p class="small dim" style="margin-top:14px">
+      ${isLogin
+        ? 'No account yet? <a href="#/signup">Request one</a>.'
+        : 'Already approved? <a href="#/login">Sign in</a>.'}
+    </p>
+    <p class="small dim">By continuing you accept the <a href="/terms">terms</a> and the
+      <a href="/privacy">privacy policy</a>. One essential cookie keeps you signed in; you can
+      change the traffic-counting choice in Settings.</p>
   </div></div>`;
-  $('#swap').onclick = () => renderAuth(isLogin ? 'signup' : 'login');
-  $('#go').onclick = async () => {
-    const u = $('#u').value.trim(), p = $('#p').value;
+
+  const started = Date.now();
+  wireField($('#u'), RULES.username);
+  wireField($('#p'), isLogin ? null : RULES.password);
+  if ($('#e')) wireField($('#e'), RULES.email);
+
+  $('#authform').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const form = $('#authform');
+    const items = [];
+    const u = $('#u').value.trim();
+    const p = $('#p').value;
+    const email = $('#e') ? $('#e').value.trim() : '';
+
+    const uMsg = RULES.username(u);
+    showFieldError($('#u'), uMsg);
+    if (uMsg) items.push({ id: 'u', message: uMsg });
+    if (!isLogin) {
+      const pMsg = RULES.password(p);
+      showFieldError($('#p'), pMsg);
+      if (pMsg) items.push({ id: 'p', message: pMsg });
+      if ($('#e')) {
+        const eMsg = RULES.email(email);
+        showFieldError($('#e'), eMsg);
+        if (eMsg) items.push({ id: 'e', message: eMsg });
+      }
+    } else if (!p) {
+      items.push({ id: 'p', message: 'Enter your password.' });
+      showFieldError($('#p'), 'Enter your password.');
+    }
+    errorSummary(form, items);
+    if (items.length) return;
+
+    const btn = $('#go');
+    btn.disabled = true;
     if (!isLogin) {
       try {
-        const r = await api('/api/signup', { method: 'POST', body: { username: u, email: $('#e').value.trim(), password: p } });
+        const r = await api('/api/signup', {
+          method: 'POST',
+          body: { username: u, email: email, password: p, t: started,
+                  company: $('#company') ? $('#company').value : '' },
+        });
+        S.view = 'signup'; setMeta('signup');
         app().innerHTML = `<div class="auth-wrap"><div class="card"><h1>Request sent</h1>
-          <p class="muted">${esc(r.message)}</p><p class="small dim">Username: <b>${esc(u)}</b></p>
-          <button id="back" style="width:100%">Back to sign in</button></div></div>`;
-        $('#back').onclick = () => renderAuth('login');
-      } catch (err) { toast(err.message, true); }
+          <p class="muted">${esc(r.message)}</p>
+          <p class="small dim">Username: <b>${esc(u)}</b></p>
+          <a class="btnlink primary" href="#/login" style="width:100%;margin-top:14px">Back to sign in</a>
+          </div></div>`;
+      } catch (err) {
+        toast(err.message, true);
+        errorSummary(form, [{ id: 'u', message: err.message }]);
+      }
+      btn.disabled = false;
       return;
     }
-    await login(u, p);
+    const ok = await login(u, p);
+    if (!ok) btn.disabled = false;
   };
 }
 
@@ -240,7 +476,13 @@ async function login(username, password) {
     location.hash = '#/plan';
     route();
     toast(`Welcome back, ${S.user.username}`);
-  } catch (err) { toast(err.message, true); }
+    return true;
+  } catch (err) {
+    toast(err.message, true);
+    const form = $('#authform');
+    if (form) errorSummary(form, [{ id: 'u', message: err.message }]);
+    return false;
+  }
 }
 
 /* ---------------------------------------------------------------------- plan */
@@ -262,7 +504,7 @@ function sessionCard(s, todayN) {
 }
 
 function renderPlan() {
-  S.view = 'plan'; paintChrome();
+  S.view = 'plan'; paintChrome(); setMeta('plan');
   const p = S.plan;
   if (!p) { app().innerHTML = '<div class="empty">No plan loaded.</div>'; return; }
   const next = p.sessions.find(s => !s.done);
@@ -284,8 +526,8 @@ function renderPlan() {
         <div class="small muted" style="margin-bottom:14px"><b style="color:var(--text)">Deliverable:</b> ${esc(next.deliverable)}</div>
         <div class="row">
           <button class="primary" id="open">Open session</button>
-          <button id="markdone">Mark done</button>
-          ${(next.exercise_slugs || []).length ? '<button id="toex">Exercises for this chapter</button>' : ''}
+          <button class="ghost" id="markdone">Mark done</button>
+          ${(next.exercise_slugs || []).length ? '<button class="ghost" id="toex">Exercises for this chapter</button>' : ''}
         </div>
       </div>
       <div class="stat card" style="box-shadow:none">
@@ -453,12 +695,12 @@ async function openPlayer(info, n) {
   card.className = 'card player'; card.id = 'player';
   card.innerHTML = `
     <div class="row" style="justify-content:space-between;align-items:center">
-      <h3 style="margin:0">🎧 Lecture</h3>
+      <h3 style="margin:0">${icon('headphones')} Lecture</h3>
       <span class="dim small" id="plect">${esc(info.title || '')}</span>
     </div>
     <audio id="paudio" preload="metadata" src="${esc(info.url)}"></audio>
     <div class="row" style="margin-top:12px;gap:10px;align-items:center">
-      <button class="primary small" id="pplay">▶ Play</button>
+      <button class="primary small" id="pplay">${icon('play')}Play</button>
       <input type="range" id="pseek" min="0" max="100" step="0.5" value="0" style="flex:1">
       <span class="small" id="ptime">0:00</span>
     </div>
@@ -485,10 +727,10 @@ async function openPlayer(info, n) {
     time.textContent = `${fmt(a.currentTime)} / ${fmt(a.duration)}`;
     if (a.currentTime > 0 && Math.floor(a.currentTime) % 5 === 0) save();
   });
-  a.addEventListener('play', () => { play.textContent = '❚❚ Pause'; });
-  a.addEventListener('pause', () => { play.textContent = '▶ Play'; save(); });
+  a.addEventListener('play', () => { play.innerHTML = icon('pause') + 'Pause'; });
+  a.addEventListener('pause', () => { play.innerHTML = icon('play') + 'Play'; save(); });
   a.addEventListener('ended', () => {
-    play.textContent = '▶ Play';
+    play.innerHTML = icon('play') + 'Play';
     try { localStorage.removeItem(key); } catch (e) {}
   });
   play.onclick = () => { if (a.paused) { a.play().catch(() => {}); } else { a.pause(); } };
@@ -503,8 +745,16 @@ async function renderSession(n) {
   n = Number(n);
   if (!S.plan) await refreshPlan();
   const s = S.plan.sessions.find(x => x.n === n);
-  if (!s) { app().innerHTML = '<div class="empty">No such session.</div>'; return; }
+  if (!s) {
+    setMeta('notfound', `Session ${n} not found · LearnLoop`);
+    app().innerHTML = `<div class="card notfound"><p class="kicker">404</p>
+      <h1>No session ${esc(String(n))}</h1>
+      <p class="muted">This course has sessions 1 to ${S.plan ? S.plan.count : '?'}. The link may be old.</p>
+      <a class="btnlink primary" href="#/plan" style="margin-top:14px">Back to the plan</a></div>`;
+    return;
+  }
   S.session = s;
+  setMeta('session', `S${String(n).padStart(2, '0')} · ${s.block} — LearnLoop`);
   clearTimer();
   const t = ensureTimer();
   t.n = n; t.total = s.minutes * 60; t.remaining = s.minutes * 60; t.elapsed = 0; t.logged = 0; t.running = false;
@@ -520,8 +770,8 @@ async function renderSession(n) {
         <span>S${String(n).padStart(2, '0')} · ${esc(s.block)}</span>
         <span style="flex:1"></span>
         <span>pages ${esc(s.pages)}</span>
-        <button class="ghost small" id="watch" title="Narrated lesson video">▶ Watch</button>
-        <button class="ghost small" id="listen" title="Narrated audio of this chapter">🎧 Listen</button>
+        <button class="ghost small" id="watch" title="Narrated lesson video">${icon('video')}Watch</button>
+        <button class="ghost small" id="listen" title="Narrated audio of this chapter">${icon('headphones')}Listen</button>
         <a href="/api/pdf/${n}${q()}" target="_blank" class="small">open in tab</a>
       </div>
       <div id="pdfhost"></div>
@@ -681,7 +931,7 @@ async function renderPdf(n) {
 
 /* ----------------------------------------------------------------- exercises */
 async function renderExercises() {
-  S.view = 'exercises'; paintChrome();
+  S.view = 'exercises'; paintChrome(); setMeta('exercises');
   app().innerHTML = '<div class="empty"><span class="spin"></span></div>';
   try {
     const r = await api('/api/exercises' + q());
@@ -722,10 +972,18 @@ async function renderExercises() {
 
 async function renderExercise(slug) {
   S.view = 'exercise'; paintChrome();
-  app().innerHTML = '<div class="empty"><span class="spin"></span></div>';
+  app().innerHTML = '<div class="empty"><span class="spin" aria-hidden="true"></span></div>';
   let ex;
   try { ex = await api('/api/exercise/' + encodeURIComponent(slug)); }
-  catch (err) { app().innerHTML = `<div class="empty">${esc(err.message)}</div>`; return; }
+  catch (err) {
+    setMeta('notfound', 'Exercise not found · LearnLoop');
+    app().innerHTML = `<div class="card notfound"><p class="kicker">404</p>
+      <h1>That exercise is gone</h1>
+      <p class="muted">${esc(err.message)}</p>
+      <a class="btnlink primary" href="#/exercises" style="margin-top:14px">Back to exercises</a></div>`;
+    return;
+  }
+  setMeta('exercise', `${ex.title} · LearnLoop`);
 
   // an exercise opened by URL may belong to a different course: follow it
   if (ex.course_id && S.courses.length) {
@@ -992,7 +1250,7 @@ async function renderExercise(slug) {
         host.innerHTML = `<div class="result ${r.ok ? 'good' : 'bad'}">
             <b>${r.ok ? 'All tests passed' : `${r.passed_count || 0} of ${r.total || 0} passed`}</b>
           </div>${rows}`;
-        toast(r.ok ? 'All tests passed 🎉' : 'Not yet — see which test failed', !r.ok);
+        toast(r.ok ? 'All tests passed' : 'Not yet — see which test failed', !r.ok);
         if (r.ok) {
           await loadCourses(); paintChrome();
           if (await chapterIsComplete(ex.chapter)) await finishChapter(ex.chapter);
@@ -1008,7 +1266,7 @@ async function renderExercise(slug) {
 
 /* -------------------------------------------------------------------- search */
 function renderSearch(qstr = '') {
-  S.view = 'search'; paintChrome();
+  S.view = 'search'; paintChrome(); setMeta('search');
   app().innerHTML = `
     <div class="card">
       <h1>Search</h1>
@@ -1046,11 +1304,34 @@ function renderSearch(qstr = '') {
 
 /* --------------------------------------------------------------------- admin */
 async function renderAdmin() {
-  S.view = 'admin'; paintChrome();
-  app().innerHTML = '<div class="empty"><span class="spin"></span></div>';
+  S.view = 'admin'; paintChrome(); setMeta('admin');
+  app().innerHTML = '<div class="empty"><span class="spin" aria-hidden="true"></span></div>';
   try {
-    const [u, ev] = await Promise.all([api('/api/admin/users'), api('/api/events')]);
+    const [u, ev, stats] = await Promise.all([
+      api('/api/admin/users'), api('/api/events'), api('/api/analytics?days=14').catch(() => null),
+    ]);
     const pending = u.users.filter(x => x.status === 'pending');
+    const peak = stats && stats.by_day.reduce((m, d) => Math.max(m, d.views), 0);
+    const traffic = !stats ? '' : `
+      <div class="card" style="margin-top:16px">
+        <div class="row" style="justify-content:space-between;align-items:baseline">
+          <h3 style="margin:0">Traffic</h3>
+          <span class="small dim">first-party, no cookies · counted only for visitors who allowed it</span>
+        </div>
+        <div class="row" style="margin-top:14px;gap:26px">
+          <div><div class="dim small">Today</div><div class="big" style="font-size:26px;font-weight:750">${stats.today}</div></div>
+          <div><div class="dim small">Last 7 days</div><div class="big" style="font-size:26px;font-weight:750">${stats.last_7_days}</div></div>
+          <div><div class="dim small">Last 30 days</div><div class="big" style="font-size:26px;font-weight:750">${stats.last_30_days}</div></div>
+        </div>
+        ${stats.by_day.length ? `<div class="row" style="margin-top:18px;align-items:flex-end;gap:6px">
+          ${stats.by_day.map(d => `<span title="${esc(d.day)}: ${d.views}" style="display:flex;flex-direction:column;align-items:center;gap:6px">
+            <i style="display:block;width:14px;border-radius:4px 4px 0 0;background:linear-gradient(180deg,var(--accent),var(--accent-2));height:${peak ? Math.max(3, Math.round(46 * d.views / peak)) : 3}px"></i>
+            <span class="dim" style="font-size:10px">${esc(d.day.slice(5))}</span></span>`).join('')}
+        </div>` : '<p class="small dim" style="margin-top:14px">No views counted yet.</p>'}
+        ${stats.top_paths.length ? `<div class="tablewrap" style="margin-top:16px"><table><thead><tr><th>Path</th><th>Views</th></tr></thead>
+          <tbody>${stats.top_paths.map(p => `<tr><td class="mono">${esc(p.path)}</td><td>${p.views}</td></tr>`).join('')}</tbody></table></div>` : ''}
+        ${stats.referrers.length ? `<p class="small dim" style="margin-top:12px">Referrers: ${stats.referrers.map(r => `${esc(r.ref)} (${r.views})`).join(' · ')}</p>` : ''}
+      </div>`;
     app().innerHTML = `
       <div class="card">
         <div class="row" style="justify-content:space-between">
@@ -1058,8 +1339,9 @@ async function renderAdmin() {
           <p class="muted small">${pending.length ? `<b style="color:var(--amber)">${pending.length} request${pending.length > 1 ? 's' : ''} waiting.</b>` : 'Nothing waiting for approval.'}</p></div>
           <button class="small" id="reload">Refresh</button>
         </div>
-        <table style="margin-top:14px">
-          <thead><tr><th>User</th><th>Status</th><th>Role</th><th>Created</th><th>Last login</th><th></th></tr></thead>
+        <div class="tablewrap" style="margin-top:14px">
+        <table>
+          <thead><tr><th>User</th><th>Status</th><th>Role</th><th>Created</th><th>Last login</th><th><span class="sr-only">Actions</span></th></tr></thead>
           <tbody>${u.users.map(x => `
             <tr>
               <td><b>${esc(x.username)}</b>${x.email ? `<div class="dim small">${esc(x.email)}</div>` : ''}</td>
@@ -1075,13 +1357,16 @@ async function renderAdmin() {
               </td>
             </tr>`).join('')}
           </tbody></table>
+        </div>
       </div>
+      ${traffic}
       <div class="card" style="margin-top:16px">
         <h3>Recent activity</h3>
-        <table style="margin-top:10px"><tbody>${ev.events.map(e => `<tr>
+        <div class="tablewrap" style="margin-top:10px">
+        <table><tbody>${ev.events.map(e => `<tr>
           <td class="small dim" style="width:170px">${new Date(e.created_at).toLocaleString()}</td>
           <td class="small"><b>${esc(e.kind)}</b> ${esc(e.detail || '')}</td></tr>`).join('') || '<tr><td class="dim small">No events yet.</td></tr>'}
-        </tbody></table>
+        </tbody></table></div>
       </div>`;
     $('#reload').onclick = renderAdmin;
     app().querySelectorAll('[data-act]').forEach(btn => {
@@ -1101,30 +1386,48 @@ async function renderAdmin() {
 
 /* ------------------------------------------------------------------ settings */
 async function renderSettings() {
-  S.view = 'settings'; paintChrome();
-  app().innerHTML = '<div class="empty"><span class="spin"></span></div>';
+  S.view = 'settings'; paintChrome(); setMeta('settings');
+  app().innerHTML = '<div class="empty"><span class="spin" aria-hidden="true"></span></div>';
   try {
     const cfg = await api('/api/config');
+    const site = cfg.site || {};
     app().innerHTML = `
       <div class="card">
         <h1>Settings</h1>
         <p class="muted small">Paths and the fnOS NAS connection. On the NAS the password comes from a 0600 environment file, not this form.</p>
-        <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:14px">
-          <div><label>Workbook (.xlsx, default course)</label><input id="workbook" value="${esc(cfg.workbook)}"></div>
-          <div><label>Guide (.pdf, default course)</label><input id="guide" value="${esc(cfg.guide)}"></div>
-          <div><label>Vault folder for notes</label><input id="vault" value="${esc(cfg.vault)}"></div>
-          <div><label>Owner username</label><input id="owner" value="${esc(cfg.owner_username)}"></div>
+        <div class="grid2" style="margin-top:14px">
+          <div><label for="workbook">Workbook (.xlsx, default course)</label><input id="workbook" value="${esc(cfg.workbook)}"></div>
+          <div><label for="guide">Guide (.pdf, default course)</label><input id="guide" value="${esc(cfg.guide)}"></div>
+          <div><label for="vault">Vault folder for notes</label><input id="vault" value="${esc(cfg.vault)}"></div>
+          <div><label for="owner">Owner username</label><input id="owner" value="${esc(cfg.owner_username)}"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h3>Site and legal pages</h3>
+        <p class="small muted" style="margin-top:6px">These values fill in the privacy policy, the terms, the canonical URL and the sitemap.</p>
+        <div class="grid2" style="margin-top:6px">
+          <div><label for="sitename">Site name</label><input id="sitename" value="${esc(site.name || '')}"></div>
+          <div><label for="publicurl">Public URL (canonical)</label><input id="publicurl" value="${esc(site.public_url || '')}" placeholder="https://learnloop.example.ts.net"></div>
+          <div><label for="contact">Contact email shown on the legal pages</label><input id="contact" type="email" value="${esc(site.contact_email || '')}"></div>
+          <div><label for="effective">Legal pages effective date</label><input id="effective" value="${esc(site.effective_date || '')}" placeholder="2026-11-25"></div>
+          <div><label for="operator">Operator (who runs this instance)</label><input id="operator" value="${esc(site.operator || '')}"></div>
+          <div><label for="jurisdiction">Governing law / jurisdiction</label><input id="jurisdiction" value="${esc(site.jurisdiction || '')}"></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <a class="btnlink" href="/privacy" target="_blank" rel="noopener">Preview privacy</a>
+          <a class="btnlink" href="/terms" target="_blank" rel="noopener">Preview terms</a>
+          <button class="small" id="cookiechoice">Cookie choice…</button>
         </div>
       </div>
       <div class="card" style="margin-top:16px">
         <h3>NAS (fnOS · WebDAV)</h3>
-        <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:6px">
-          <div><label>LAN URL</label><input id="lan" value="${esc(cfg.nas.lan_url)}"></div>
-          <div><label>Remote URL (VPN / port-forward)</label><input id="public" value="${esc(cfg.nas.public_url)}"></div>
-          <div><label>Username</label><input id="nasuser" value="${esc(cfg.nas.user)}"></div>
-          <div><label>Password ${cfg.nas.has_password ? '<span class="dim">(saved)</span>' : ''}</label><input id="naspw" type="password"></div>
-          <div><label>Remote folder</label><input id="remote" value="${esc(cfg.nas.remote_dir)}"></div>
-          <div><label>Use</label><select id="active">
+        <div class="grid2" style="margin-top:6px">
+          <div><label for="lan">LAN URL</label><input id="lan" value="${esc(cfg.nas.lan_url)}"></div>
+          <div><label for="public">Remote URL (VPN / port-forward)</label><input id="public" value="${esc(cfg.nas.public_url)}"></div>
+          <div><label for="nasuser">Username</label><input id="nasuser" value="${esc(cfg.nas.user)}"></div>
+          <div><label for="naspw">Password ${cfg.nas.has_password ? '<span class="dim">(saved)</span>' : ''}</label><input id="naspw" type="password" autocomplete="new-password"></div>
+          <div><label for="remote">Remote folder</label><input id="remote" value="${esc(cfg.nas.remote_dir)}"></div>
+          <div><label for="active">Use</label><select id="active">
             <option value="lan" ${cfg.nas.active === 'lan' ? 'selected' : ''}>LAN</option>
             <option value="public" ${cfg.nas.active === 'public' ? 'selected' : ''}>Remote</option>
           </select></div>
@@ -1160,10 +1463,19 @@ async function renderSettings() {
       try {
         await api('/api/config', { method: 'POST', body: {
           workbook: $('#workbook').value, guide: $('#guide').value, vault: $('#vault').value, owner_username: $('#owner').value,
+          site: {
+            name: $('#sitename').value, public_url: $('#publicurl').value, contact_email: $('#contact').value,
+            effective_date: $('#effective').value, operator: $('#operator').value, jurisdiction: $('#jurisdiction').value,
+          },
           nas: { lan_url: $('#lan').value, public_url: $('#public').value, user: $('#nasuser').value, password: $('#naspw').value, remote_dir: $('#remote').value, active: $('#active').value },
         } });
         toast('Settings saved'); await refreshPlan();
       } catch (err) { toast(err.message, true); }
+    };
+    $('#cookiechoice').onclick = () => {
+      try { localStorage.removeItem(CONSENT_KEY); } catch (e) { /* private mode */ }
+      initConsent();
+      toast('Cookie choice cleared — pick again in the banner');
     };
     $('#test').onclick = async () => {
       out('Testing…');
@@ -1191,6 +1503,22 @@ async function uploadAll(btn, log) {
 }
 
 /* -------------------------------------------------------------------- router */
+function renderNotFound() {
+  S.view = 'notfound'; paintChrome(); setMeta('notfound');
+  app().innerHTML = `
+    <div class="card notfound">
+      <p class="kicker">404</p>
+      <h1>That page is not here</h1>
+      <p class="muted">The link may be old, or the session or exercise it pointed at no longer
+      exists in this course.</p>
+      <div class="row" style="margin-top:16px">
+        <a class="btnlink primary" href="#/plan">Open the plan</a>
+        <a class="btnlink" href="#/exercises">Exercises</a>
+        <a class="btnlink" href="/privacy">Privacy</a>
+      </div>
+    </div>`;
+}
+
 function route() {
   if (!S.user) {
     if (S.setupRequired) { renderSetup(); return; }
@@ -1198,6 +1526,9 @@ function route() {
     return;
   }
   const hash = location.hash || '#/plan';
+  // the legal pages are real documents, not views: hand them to the browser
+  if (hash.startsWith('#/privacy')) { location.assign('/privacy'); return; }
+  if (hash.startsWith('#/terms')) { location.assign('/terms'); return; }
   let m;
   if ((m = hash.match(/^#\/session\/(\d+)/))) return renderSession(m[1]);
   if ((m = hash.match(/^#\/exercise\/([^/?]+)/))) return renderExercise(decodeURIComponent(m[1]));
@@ -1205,11 +1536,15 @@ function route() {
   if (hash.startsWith('#/search')) return renderSearch(new URLSearchParams(hash.split('?')[1] || '').get('q') || '');
   if (hash.startsWith('#/admin')) return renderAdmin();
   if (hash.startsWith('#/settings')) return renderSettings();
-  return renderPlan();
+  if (hash === '#/plan' || hash === '#/' || hash === '#') return renderPlan();
+  if (hash.startsWith('#/login')) { renderAuth('login'); return; }
+  if (hash.startsWith('#/signup')) { renderAuth('signup'); return; }
+  return renderNotFound();
 }
 
 /* ---------------------------------------------------------------------- boot */
 async function boot() {
+  initConsent();
   try {
     const st = await api('/api/state');
     S.setupRequired = st.setup_required;
@@ -1220,8 +1555,14 @@ async function boot() {
     await refreshPlan();
     paintChrome();
     route();
+    trackView();
   } catch (err) {
-    app().innerHTML = `<div class="empty">Cannot reach LearnLoop: ${esc(err.message)}</div>`;
+    setMeta('notfound', 'LearnLoop is unreachable');
+    app().innerHTML = `<div class="card notfound"><h1>Cannot reach LearnLoop</h1>
+      <p class="muted">${esc(err.message)}</p>
+      <button class="primary" id="retry" style="margin-top:14px">Try again</button></div>`;
+    const retry = $('#retry');
+    if (retry) retry.onclick = () => boot();
   }
 }
 
@@ -1232,7 +1573,7 @@ $('#logout').onclick = async () => {
 };
 
 $('#coursesel').onchange = (e) => switchCourse(e.target.value);
-window.addEventListener('hashchange', route);
+window.addEventListener('hashchange', () => { route(); trackView(); });
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 boot();
